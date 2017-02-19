@@ -1,0 +1,60 @@
+.TH OSNMPD 8 "February 22, 2016" "Version @SNMP_VERSION@" "osnmpd manual"
+
+.SH NAME
+osnmpd - SNMPv3 daemon responding on incoming SNMP requests.
+
+.SH SYNOPSIS
+.B osnmpd
+.RI [ options ]
+
+.SH DESCRIPTION
+.BI osnmpd
+is a minimal SNMP agent implementation, to be used for basic system monitoring.  The agent process binds on a predefined UDP port and listens for incoming requests.  In addition to that, unsolicited trap/inform events can be dispatched from any process within the system to a predefined monitoring process.  Only a minimal set of MIB attributes are present by default;  additional attributes can be exported through means of shared objects.
+
+.SH OPTIONS
+.TP
+.B \-c\fR <config-file>
+Use configuration file at the specified location instead of the default file.
+.TP
+.B \-d
+Enable debug logging.
+.TP
+.B \-f
+Run the server in the foreground (i.e. do not daemonize).
+.TP
+.B \-p\fR <plugin-directory>
+Load MIB plugins from the specified directory instead of the default location.
+.TP
+.B \-q
+This suppresses non-essential logging.
+.TP
+.B \-v
+This prints the name and version of the application.
+
+.SH FILES
+.PP
+@SNMP_CONF@/snmpd.conf
+.RS 4
+The default configuration file\&.
+.RE
+.PP
+@SNMP_PLUGIN@
+.RS 4
+The default location for MIB modules\&.
+.RE
+.PP
+@SNMP_RUN@/osnmpd-ctl
+.RS 4
+Path to the control socket\&.
+.RE
+
+.SH SEE ALSO
+.PP
+RFC 3411,
+RFC 3412,
+RFC 3413,
+RFC 3414
+
+.SH AUTHOR
+.PP
+\fBosnmpd\fR was written by Olivier Verriest <verri@x25.pm>.  Bug reports or other contributions are welcome\&.

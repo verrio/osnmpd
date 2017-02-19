@@ -1,0 +1,3 @@
+- determine max PDU size dynamically
+- don't block on DNS resolving
+- do some proper testing

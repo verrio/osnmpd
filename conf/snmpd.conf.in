@@ -1,0 +1,57 @@
+#----------------------------
+# SNMP agent configuration
+#---------------------------
+
+agent:
+{
+  uid = "snmp-usr";
+  gid = "snmp-grp";
+  port = 161;
+  interfaces = [ "eth0", "eth1", "ppp0" ];
+  cache-dir = "@SNMP_CACHE@";
+  
+  trap:
+  {
+    enabled = true;
+    confirmed = false;
+    user = "READ_ONLY";
+    destination = "10.0.0.1";
+    port = 162;
+    retries = 3;
+    timeout = 10;
+  };
+  
+  users = (
+    {
+      slot = "PUBLIC";
+      enabled = true;
+      name = "public";
+      security-model = "USM";
+      security-level = "noAuthnoPriv";
+    },
+    {
+      slot = "READ_ONLY";
+      enabled = true;
+      name = "read-only";
+      security-model = "USM";
+      security-level = "authPriv";
+      auth-password = "hunter2";
+      priv-password = "hunter2";
+    },
+    {
+      slot = "READ_WRITE";
+      enabled = false;
+      name = "read-write";
+      security-model = "USM";
+      security-level = "authPriv";
+    },
+    {
+      slot = "ADMIN";
+      enabled = false;
+      name = "admin";
+      security-model = "USM";
+      security-level = "authPriv";
+    }
+  );
+  
+};
