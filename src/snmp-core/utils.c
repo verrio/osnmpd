@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,6 +24,7 @@
 #include <iconv.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "snmp-core/snmp-core.h"
 #include "snmp-core/utils.h"
@@ -133,22 +134,55 @@ int read_from_file(const char *path, uint8_t **dst, size_t *dst_len)
         }
 
         rewind(f);
-        if (fread(*dst, *dst_len, 1, f) != 1) {
+
+        int val = fread(*dst, *dst_len, 1, f);
+        if (val != 1) {
             ret = -1;
             free(*dst);
             *dst = NULL;
         }
     } else {
-        size_t read_len = fread(*dst, *dst_len, 1, f);
-        if (read_len != 1 && !feof(f)) {
-            ret = -1;
-        }
+        size_t read_len = fread(*dst, 1, *dst_len, f);
         *dst_len = read_len;
     }
 
 end:
     fclose(f);
     return ret;
+}
+
+int read_unsigned_from_file(const char *file, uint32_t *dst)
+{
+    FILE *f = NULL;
+    char line[16];
+
+    if ((f = fopen(file, "r")) == NULL) {
+        return -1;
+    } else if (line != fgets(line, sizeof(line), f) ||
+        sscanf(line, "%"PRIu32, dst) != 1) {
+        fclose(f);
+        return -1;
+    }
+
+    fclose(f);
+    return 0;
+}
+
+int read_unsigned64_from_file(const char *file, uint64_t *dst)
+{
+    FILE *f = NULL;
+    char line[16];
+
+    if ((f = fopen(file, "r")) == NULL) {
+        return -1;
+    } else if (line != fgets(line, sizeof(line), f) ||
+        sscanf(line, "%"PRIu64, dst) != 1) {
+        fclose(f);
+        return -1;
+    }
+
+    fclose(f);
+    return 0;
 }
 
 int write_to_file(const char *path, const uint8_t *val, const size_t val_len)
@@ -164,4 +198,48 @@ int write_to_file(const char *path, const uint8_t *val, const size_t val_len)
 
     fclose(f);
     return ret;
+}
+
+void set_netmask(const int prefix_len, uint8_t *buf, const size_t buf_len)
+{
+    memset(buf, 0, buf_len);
+    int rem = prefix_len;
+    int i = 0;
+    while (rem > 8 && i < buf_len) {
+        buf[i++] = 0xff;
+        rem -= 8;
+    }
+    if (rem > 0 && i < buf_len) {
+        buf[i] = 0xff << (8 - rem);
+    }
+}
+
+char *trim_string(char *str)
+{
+    if (str == NULL || str[0] == '\0') {
+        return str;
+    }
+
+    size_t len = strlen(str);
+    char *start = str;
+    char *end = str + len;
+
+    while (isspace((unsigned char) *start))
+        start++;
+    if(end != start)
+        while ((isspace((unsigned char) *(--end)) || *end == '\n') && end != start);
+
+    if(str + len - 1 != end)
+        *(end + 1) = '\0';
+    else if(start != str && end == start)
+        *str = '\0';
+
+    end = str;
+    if(start != str) {
+        while(*start)
+            *end++ = *start++;
+        *end = '\0';
+    }
+
+    return str;
 }

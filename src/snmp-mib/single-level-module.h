@@ -30,6 +30,16 @@
 #include "snmp-mib/mib-module.h"
 #include "snmp-mib/mib-utils.h"
 
+#define SET_SUBMODULE(module, entry) do { \
+    ((SingleLevelMibModule *) module)->sub_modules = entry; \
+} while (0);
+
+#define EMPTY_TABLE(next_row, binding) do { \
+    (binding)->type = next_row ? SMI_EXCEPT_END_OF_MIB_VIEW : \
+            SMI_EXCEPT_NO_SUCH_INSTANCE; \
+    return NO_ERROR; \
+} while (0);
+
 #define INSTANCE_FOUND_INT_ROW(next_row, prefix, table_id, column, row_id) do {\
     if ((next_row)) { \
         SET_OID(binding->oid, prefix, table_id, 1, column, row_id); \
@@ -80,6 +90,64 @@
     return NO_ERROR; \
 } while (0);
 
+#define INSTANCE_FOUND_INT_OCTET_STRING_ROW(next_row, prefix, table_id, column, \
+    row_indx1, row_indx2, row_indx2_len) do {\
+    if ((next_row)) { \
+        SET_OID(binding->oid, prefix, table_id, 1, column, row_indx1); \
+        if (fill_row_index_string(&((binding)->oid), row_indx2, row_indx2_len)) { \
+            return GENERAL_ERROR; \
+        } \
+    } \
+    return NO_ERROR; \
+} while (0);
+
+#define INSTANCE_FOUND_INT_OCTET_STRING_INT_ROW(next_row, prefix, table_id, column, \
+    row_indx1, row_indx2, row_indx2_len, row_indx3) do {\
+    if ((next_row)) { \
+        SET_OID(binding->oid, prefix, table_id, 1, column, row_indx1); \
+        if (fill_row_index_string(&((binding)->oid), row_indx2, row_indx2_len)) { \
+            return GENERAL_ERROR; \
+        } else if ((binding)->oid.len + 1 >= MAX_OID_LEN) { \
+            return GENERAL_ERROR; \
+        } \
+        (binding)->oid.subid[(binding)->oid.len++] = row_indx3; \
+    } \
+    return NO_ERROR; \
+} while (0);
+
+#define INSTANCE_FOUND_INT2_OCTET_STRING_ROW(next_row, prefix, table_id, column, \
+    row_indx1, row_indx2, row_indx3, row_indx3_len) do {\
+    if ((next_row)) { \
+        SET_OID(binding->oid, prefix, table_id, 1, column, row_indx1, row_indx2); \
+        if (fill_row_index_string(&((binding)->oid), row_indx3, row_indx3_len)) { \
+            return GENERAL_ERROR; \
+        } \
+    } \
+    return NO_ERROR; \
+} while (0);
+
+#define INSTANCE_FOUND_INT_FIXED_STRING_ROW(next_row, prefix, table_id, column, \
+    row_indx1, row_indx2, row_indx2_len) do {\
+    if ((next_row)) { \
+        SET_OID(binding->oid, prefix, (table_id), 1, (column), (row_indx1)); \
+        if (fill_row_index_fixed_string(&((binding)->oid), row_indx2, row_indx2_len)) { \
+            return GENERAL_ERROR; \
+        } \
+    } \
+    return NO_ERROR; \
+} while (0);
+
+#define INSTANCE_FOUND_FIXED_STRING_ROW(next_row, prefix, table_id, column, \
+    row_indx, row_indx_len) do {\
+    if ((next_row)) { \
+        SET_OID(binding->oid, prefix, (table_id), 1, (column)); \
+        if (fill_row_index_fixed_string(&((binding)->oid), row_indx, row_indx_len)) { \
+            return GENERAL_ERROR; \
+        } \
+    } \
+    return NO_ERROR; \
+} while (0);
+
 #define CHECK_INT_FOUND(next_row, instance) do { \
     if ((instance) == -1) { \
         binding->type = (next_row) ? SMI_EXCEPT_END_OF_MIB_VIEW : \
@@ -109,15 +177,25 @@
 } while (0);
 
 #define SET_OCTET_STRING_RESULT(binding, val, val_len) do { \
-    if ((val) == NULL) { \
+    uint8_t *res = (uint8_t *) (val); \
+    if ((res) == NULL) { \
         return GENERAL_ERROR; \
     } \
-    SET_OCTET_STRING_BIND(binding, val, val_len); \
+    SET_OCTET_STRING_BIND(binding, res, val_len); \
+} while (0);
+
+#define SET_OPAQUE_RESULT(binding, val, val_len) do { \
+    uint8_t *res = (uint8_t *) (val); \
+    if ((res) == NULL) { \
+        return GENERAL_ERROR; \
+    } \
+    SET_OPAQUE_BIND(binding, res, val_len); \
 } while (0);
 
 /* object types present at this level */
-#define LEAF_UNUSED 0xffff
 #define LEAF_SCALAR 0x0
+#define LEAF_SUBTREE 0xf000
+#define LEAF_UNUSED 0xffff
 
 /* MIB group consisting of a consecutive single-level
  * range of scalar and table objects. */
@@ -130,6 +208,7 @@ typedef struct SingleLevelMibModule {
     int offset;
     int limit;
     uint16_t *leaves;
+    MibModule *sub_modules;
 
     /**
      * @internal

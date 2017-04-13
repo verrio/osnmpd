@@ -25,6 +25,13 @@
 #include "snmp-core/utils.h"
 #include "snmp-mib/mib-utils.h"
 
+#include <stdio.h>
+
+void *fetch_empty_cache(void)
+{
+    return NULL;
+}
+
 int search_int_indices(const size_t index_len, const uint32_t index_min[],
         const uint32_t index_max[], uint32_t row[], const SubOID *cur,
         const size_t cur_len, const int next)
@@ -136,6 +143,33 @@ int bsearch_oid_indices(const SubOID *rows[], const size_t row_len[],
     return next && low < row_count ? low : -1;
 }
 
+int bsearch_next(const void *key, const void *base, size_t len, size_t width,
+        int (*cmp)(const void *, const void *))
+{
+    int low = 0;
+    int high = len - 1;
+
+    while (low <= high) {
+        int i = low + (high - low) / 2;
+        switch (cmp(key, (char *) base + i * width)) {
+            case 0: {
+                return i < len - 1 ? i + 1 : -1;
+            }
+
+            case -1: {
+                high = i - 1;
+                break;
+            }
+
+            case 1: {
+                low = i + 1;
+            }
+        }
+    }
+
+    return low < len ? low : -1;
+}
+
 int lsearch_string_indices(const char *rows[], const int row_count,
     const SubOID *cur, const size_t cur_len, const int next)
 {
@@ -180,15 +214,35 @@ int cmp_index_to_array(const uint8_t *arr, const size_t arr_len,
 
     for (int i = 0; i < min(arr_len, val_len - 1); i++) {
         if (val[i + 1] < arr[i]) {
-            return 1;
-        } else if (val[i + 1] > arr[i]) {
             return -1;
+        } else if (val[i + 1] > arr[i]) {
+            return 1;
         }
     }
 
     if (val_len < arr_len + 1) {
         return -1;
     } else if (val_len > arr_len + 1) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int cmp_fixed_index_to_array(const uint8_t *arr, const size_t arr_len,
+    const SubOID *val, const size_t val_len)
+{
+    for (int i = 0; i < min(arr_len, val_len); i++) {
+        if (val[i] < arr[i]) {
+            return -1;
+        } else if (val[i] > arr[i]) {
+            return 1;
+        }
+    }
+
+    if (val_len < arr_len) {
+        return -1;
+    } else if (val_len > arr_len) {
         return 1;
     } else {
         return 0;
@@ -237,4 +291,71 @@ int fill_row_index_string(OID *oid, const uint8_t *row_indx,
         oid->subid[oid->len++] = row_indx[i];
     }
     return 0;
+}
+
+int fill_row_index_fixed_string(OID *oid, const uint8_t *row_indx,
+        const size_t row_indx_len)
+{
+    if (MAX_OID_LEN - oid->len < row_indx_len) {
+        return -1;
+    }
+    for (int i = 0; i < row_indx_len; i++) {
+        oid->subid[oid->len++] = row_indx[i];
+    }
+    return 0;
+}
+
+void *sort_list(void *head,
+    int (*cmp_entries)(const void *, const void *), void *(*next_entry)(void *),
+    void (*set_next_entry)(void *, void *))
+{
+    void *ret = head;
+    void *p = NULL;
+    void *c = head;
+
+    while (c != NULL) {
+        void *min_prev = p;
+        void *min = c;
+
+        void *n_prev = c;
+        void *n = next_entry(c);
+        while (n != NULL) {
+            if (cmp_entries(min,n) > 0) {
+                min_prev = n_prev;
+                min = n;
+            }
+            n_prev = n;
+            n = next_entry(n);
+        }
+
+        if (min != c) {
+            void *tmp = next_entry(c);
+            set_next_entry(c, next_entry(min));
+            if (p == NULL) {
+                ret = min;
+            } else {
+                set_next_entry(p,min);
+            }
+            if (min == tmp) {
+                set_next_entry(min,c);
+            } else {
+                set_next_entry(min,tmp);
+                set_next_entry(min_prev,c);
+            }
+        }
+
+        p = min;
+        c = next_entry(min);
+    }
+
+    return ret;
+}
+
+SnmpErrorStatus validate_boolean_value(SnmpVariableBinding *binding)
+{
+    if (binding->type != SMI_TYPE_INTEGER_32)
+        return WRONG_TYPE;
+    if (binding->value.integer != 0 &&  binding->value.integer != 1)
+        return WRONG_VALUE;
+    return NO_ERROR;
 }

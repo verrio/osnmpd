@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -58,6 +58,9 @@
 #define FD_OUTGOING 2
 
 #define POLL_EVENT  (POLLIN | POLLERR | POLL_HUP | POLLNVAL)
+
+/* indicates if debug logging is enabled */
+static int debug_logging = 0;
 
 /* PID file */
 static const char *pid_file = SNMPD_RUN_PATH "osnmpd.pid";
@@ -178,6 +181,7 @@ static int load_plugins(void)
         }
     }
 
+    regfree(&plugin_reg);
     closedir(dir);
     return 0;
 }
@@ -257,6 +261,17 @@ static void remove_pid_file(void)
     }
 }
 
+void set_debug_logging(int enabled)
+{
+    debug_logging = enabled ? 1 : 0;
+    setlogmask(LOG_UPTO(enabled ? LOG_DEBUG : LOG_INFO));
+}
+
+int debug_logging_enabled(void)
+{
+    return debug_logging;
+}
+
 int main(int argc, char **argv)
 {
     int daemonize = 1;
@@ -290,6 +305,7 @@ int main(int argc, char **argv)
             }
 
             case 'd': {
+                debug_logging = 1;
                 log_level = LOG_DEBUG;
                 break;
             }

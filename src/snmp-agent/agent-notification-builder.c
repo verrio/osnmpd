@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,7 +26,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <syslog.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "snmp-agent/agent-notification-builder.h"
 #include "snmp-agent/agent-notification.h"
@@ -179,8 +179,8 @@ int build_authentication_failure_notification(const char *source, buf_t *buf)
     asn1int_t device_code = AUTH_FAILURE_DEVICE_CODE;
     asn1int_t notification_code = AUTH_FAILURE_NOTIFICATION_CODE;
 
-    struct timeval tv;
-    gettimeofday(&tv, NULL); /* dispatch notification, even if fetching the system time fails */
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time); /* continue even if fetching the system time fails */
 
     int mark = buf->pos;
     if (source == NULL) {
@@ -195,7 +195,7 @@ int build_authentication_failure_notification(const char *source, buf_t *buf)
             FLAG_UNIVERSAL), "notification device code");
     CHECK_ENC_RESULT(encode_INTEGER(buf, &notification_code, TAG_ENUMERATED,
         FLAG_UNIVERSAL), "notification code");
-    CHECK_ENC_RESULT(encode_UNSIGNED64(buf, (tv.tv_sec * 1000) + (tv.tv_usec / 1000),
+    CHECK_ENC_RESULT(encode_UNSIGNED64(buf, (time.tv_sec * 1000) + (time.tv_nsec / 1000000),
         TAG_INTEGER, FLAG_UNIVERSAL), "notification time stamp");
     CHECK_ENC_RESULT(encode_BITSTRING(buf, &flags), "notification flags");
     CHECK_ENC_RESULT(encode_INTEGER(buf, &version, TAG_INTEGER, FLAG_UNIVERSAL),

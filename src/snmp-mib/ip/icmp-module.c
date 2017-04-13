@@ -79,22 +79,22 @@ static SnmpErrorStatus get_icmp_table(int column, SubOID *row, size_t row_len,
         }
 
         case ICMP_STATS_IN_MSG: {
-            SET_UNSIGNED_BIND(binding, entry->in_msg);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->in_msg));
             break;
         }
 
         case ICMP_STATS_IN_ERRORS: {
-            SET_UNSIGNED_BIND(binding, entry->in_err);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->in_err));
             break;
         }
 
         case ICMP_STATS_OUT_MSGS: {
-            SET_UNSIGNED_BIND(binding, entry->out_msg);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->out_msg));
             break;
         }
 
         case ICMP_STATS_OUT_ERRORS: {
-            SET_UNSIGNED_BIND(binding, entry->out_err);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->out_err));
             break;
         }
     }
@@ -131,12 +131,12 @@ static SnmpErrorStatus get_icmp_msg_table(int column, SubOID *row,
         }
 
         case ICMP_MSG_STATS_IN_PKTS: {
-            SET_UNSIGNED_BIND(binding, entry->in_pkts);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->in_pkts));
             break;
         }
 
         case ICMP_MSG_STATS_OUT_PKTS: {
-            SET_UNSIGNED_BIND(binding, entry->out_pkts);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(entry->out_pkts));
             break;
         }
     }

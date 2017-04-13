@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,8 +54,8 @@ typedef enum {
 #define OID_SEQ_LENGTH(...) OID_LENGTH(((SubOID[]){__VA_ARGS__}))
 
 #define SET_OID(oid, ...) do { \
-    oid.len = OID_SEQ_LENGTH(__VA_ARGS__); \
-    init_OID(&oid, oid.len, __VA_ARGS__); \
+    (oid).len = OID_SEQ_LENGTH(__VA_ARGS__); \
+    init_OID(&(oid), (oid).len, __VA_ARGS__); \
 } while (0)
 
 #define COPY_OID(dst, src) do { \
@@ -73,9 +73,23 @@ typedef enum {
     COPY_OID(&(binding)->value.oid, src); \
 } while (0)
 
+#define SET_IP4_ADDRESS_BIND(binding, address) do { \
+    (binding)->type = SMI_TYPE_IP_ADDRESS; \
+    (binding)->value.ip_address[0] = (address)[0]; \
+    (binding)->value.ip_address[1] = (address)[1]; \
+    (binding)->value.ip_address[2] = (address)[2]; \
+    (binding)->value.ip_address[3] = (address)[3]; \
+} while (0)
+
 #define SET_OCTET_STRING_BIND(binding, val, val_len) do { \
     (binding)->type = SMI_TYPE_OCTET_STRING; \
-    (binding)->value.octet_string.octets = (val); \
+    (binding)->value.octet_string.octets = (uint8_t *) (val); \
+    (binding)->value.octet_string.len = (val_len); \
+} while (0)
+
+#define SET_OPAQUE_BIND(binding, val, val_len) do { \
+    (binding)->type = SMI_TYPE_OPAQUE; \
+    (binding)->value.octet_string.octets = (uint8_t *) (val); \
     (binding)->value.octet_string.len = (val_len); \
 } while (0)
 
@@ -96,6 +110,11 @@ typedef enum {
     (binding)->value.unsigned_integer = (val); \
 } while (0)
 
+#define SET_UNSIGNED64_BIND(binding, val) do { \
+    (binding)->type = SMI_TYPE_COUNTER_64; \
+    (binding)->value.counter64 = (val); \
+} while (0)
+
 #define SET_GAUGE_BIND(binding, val) do { \
     (binding)->type = SMI_TYPE_GAUGE_32; \
     (binding)->value.unsigned_integer = (val); \
@@ -105,6 +124,9 @@ typedef enum {
     (binding)->type = SMI_TYPE_TIME_TICKS; \
     (binding)->value.unsigned_integer = (val); \
 } while (0)
+
+#define GET_OCTET_STRING(binding) (binding)->value.octet_string.octets
+#define GET_OCTET_STRING_LEN(binding) (binding)->value.octet_string.len
 
 /* limit subID to 32-bit integers */
 typedef uint32_t SubOID;

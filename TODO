@@ -1,3 +1,10 @@
 - determine max PDU size dynamically
 - don't block on DNS resolving
 - do some proper testing
+- expose file system statistics somehow
+- add ENTITY-MIB
+- add TUNNEL-MIB
+- add IP-FORWARD-MIB
+- add GPS-MIB
+- add UPS-MIB
+- add SCTP-MIB

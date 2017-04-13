@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48,12 +48,17 @@ static uint64_t start_time;
 /* agent statistics */
 SnmpAgentStatistics agent_statistics;
 
+/* module cache */
+SnmpMibModuleCache mib_cache;
+
 int init_cache(void)
 {
     int ret = 0;
+    char *file_name = NULL;
 
     /* init non-persistent values */
     memset(&agent_statistics, 0, sizeof(SnmpAgentStatistics));
+    memset(&mib_cache, 0, sizeof(SnmpMibModuleCache));
     struct sysinfo s_info;
     if (sysinfo(&s_info)) {
         syslog(LOG_ERR, "failed to determine uptime.");
@@ -70,8 +75,7 @@ int init_cache(void)
         goto err;
     }
 
-    char *file_name = strconcat(cache_dir, boot_file);
-    if (file_name == NULL) {
+    if ((file_name = strconcat(cache_dir, boot_file)) == NULL) {
         goto err;
     }
 
@@ -105,12 +109,21 @@ int init_cache(void)
     fclose(f);
 
     return ret;
-    err: boot_count = 0;
+err:
+    if (file_name) {
+        free(file_name);
+    }
+    boot_count = 0;
     return -1;
 }
 
 int finish_cache(void)
 {
+    if (mib_cache.free_val != NULL && mib_cache.val != NULL) {
+        mib_cache.free_val(mib_cache.val);
+        mib_cache.val = NULL;
+    }
+
     return 0;
 }
 
@@ -162,7 +175,41 @@ uint32_t get_uptime(void)
     }
 }
 
+uint32_t rebase_duration(uint32_t duration)
+{
+    uint32_t uptime = get_uptime();
+
+    if (uptime == -1 || uptime < duration) {
+        return 0;
+    }
+
+    return uptime - duration;
+}
+
 SnmpAgentStatistics *get_statistics(void)
 {
     return &agent_statistics;
+}
+
+void *get_mib_cache(void *(*fetch_cache)(void), void (*free_cache)(void *),
+        uint32_t max_age)
+{
+    struct sysinfo s_info;
+    if (sysinfo(&s_info)) {
+        return NULL;
+    }
+
+    if (mib_cache.update_val != fetch_cache ||
+        (uint32_t) s_info.uptime - mib_cache.last_update > max_age) {
+        if (mib_cache.free_val != NULL && mib_cache.val != NULL) {
+            mib_cache.free_val(mib_cache.val);
+        }
+
+        mib_cache.last_update = (uint32_t) s_info.uptime;
+        mib_cache.update_val = fetch_cache;
+        mib_cache.free_val = free_cache;
+        mib_cache.val = fetch_cache();
+    }
+
+    return mib_cache.val;
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (http://osnmpd.github.io).
+ * This file is part of the osnmpd project (http://osnmpd.github.io).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,7 +54,6 @@
 #include "snmp-agent/mib-tree.h"
 #include "snmp-core/snmp-crypto.h"
 #include "snmp-core/utils.h"
-
 
 /* size required for control data */
 #define CONTROL_DATASIZE (CMSG_SPACE(sizeof(struct in6_pktinfo)))
@@ -282,7 +281,7 @@ static int handle_decoded_request(SnmpPDU *pdu, buf_t *output_buf,
         increment_incoming_pdu_counter(&scoped_pdu);
         return generate_discovery_response(pdu, &scoped_pdu, output_buf);
     } else if ((user_found = validate_pdu_header(pdu, &user))) {
-        return generate_error_response(user, REPORT,
+        return generate_error_response(user, RESPONSE,
                 user_found == -2 ? NO_SUCH_NAME : GENERAL_ERROR, 0, pdu, NULL,
                 output_buf);
     } else if (is_time_sync_request(pdu)) {
@@ -359,9 +358,12 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
             syslog(LOG_WARNING, "received request for unknown PDU handler %s", engine_id_hex);
         }
         get_statistics()->snmp_unknown_pdu_handlers++;
-        return generate_error_response(user, REPORT, GENERAL_ERROR, 0, pdu, scoped_pdu, output_buf);
+        return generate_error_response(user, RESPONSE,
+            GENERAL_ERROR, 0, pdu, scoped_pdu, output_buf);
     }
-    /* accept all context names, since not all clients allow this parameter to be configured. */
+
+    /* accept all context names, since not all clients
+     * allow this parameter to be configured. */
 
     increment_incoming_error_counter(scoped_pdu);
     switch (scoped_pdu->type) {
@@ -393,7 +395,7 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
             }
 
             return handle_get_request(user, pdu, scoped_pdu, output_buf, max_size,
-                    1, 0, 1);
+                    1, scoped_pdu->non_repeaters, scoped_pdu->max_repetitions);
         }
 
         case SET: {
@@ -406,7 +408,7 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         default: {
-            return generate_error_response(user, REPORT, GENERAL_ERROR, 0, pdu,
+            return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
                     scoped_pdu, output_buf);
         }
     }
@@ -438,8 +440,8 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
         SnmpVariableBinding *previous_binding = NULL;
 
         for (int j = 0; j < max_repeat; j++) {
-            SnmpVariableBinding *binding = add_variable_binding(
-                    &response_scoped_pdu);
+            SnmpVariableBinding *binding =
+                add_variable_binding(&response_scoped_pdu);
 
             if (binding == NULL) {
                 get_statistics()->snmp_out_get_responses++;
@@ -455,8 +457,8 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
                         sizeof(OID));
             }
             binding->type = SMI_TYPE_NULL;
-            SnmpErrorStatus status =
-                    next ? mib_get_next_entry(binding) : mib_get_entry(binding);
+            SnmpErrorStatus status = next ?
+                mib_get_next_entry(binding) : mib_get_entry(binding);
 
             if (status != NO_ERROR) {
                 get_statistics()->snmp_out_get_responses++;
@@ -486,8 +488,13 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
     pdu->scoped_pdu.decrypted_pdu = &response_scoped_pdu;
     size_t orig_num_bindings = response_scoped_pdu.num_of_bindings;
     int ret = build_response_pdu(user, pdu, output_buf, max_size);
+    size_t new_num_bindings = response_scoped_pdu.num_of_bindings;
     response_scoped_pdu.num_of_bindings = orig_num_bindings;
     release_bindings(&response_scoped_pdu);
+    if (response_scoped_pdu.error_status == TOO_BIG && limit == 1) {
+        return generate_error_response(user, RESPONSE, TOO_BIG, new_num_bindings,
+            pdu, scoped_pdu, output_buf);
+    }
     return ret;
 }
 
@@ -557,7 +564,7 @@ static int is_authenticated_get(SnmpUserSlot user, OID *oid)
 static int is_authenticated_set(SnmpUserSlot user, OID *oid)
 {
     //TODO provide fine-grained access control
-    if (user == USER_READ_WRITE || user == USER_READ_ONLY) {
+    if (user == USER_READ_WRITE || user == USER_ADMIN) {
         return 0;
     }
 
@@ -678,13 +685,13 @@ static int generate_security_error_response(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         default: {
-            return generate_error_response(user, REPORT, GENERAL_ERROR, 0, pdu,
+            return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
                     NULL, output_buf);
         }
     }
 
     *auth_trap = 1;
-    return generate_error_response(user, REPORT, AUTHORIZATION_ERROR, 0, pdu,
+    return generate_error_response(user, RESPONSE, AUTHORIZATION_ERROR, 0, pdu,
             NULL, output_buf);
 }
 
@@ -730,7 +737,9 @@ static int generate_error_response(SnmpUserSlot user, SnmpPduType type,
     pdu->scoped_pdu.decrypted_pdu->type = type;
     pdu->scoped_pdu.decrypted_pdu->error_status = errStatus;
     pdu->scoped_pdu.decrypted_pdu->error_index = errIndex;
-    pdu->scoped_pdu.decrypted_pdu->num_of_bindings = 0;
+    if (scoped_pdu == NULL) {
+        pdu->scoped_pdu.decrypted_pdu->num_of_bindings = 0;
+    }
 
     return build_response_pdu(user, pdu, output_buf, max_pdu_size);
 }
@@ -761,10 +770,10 @@ static int build_response_pdu(SnmpUserSlot user, SnmpPDU *pdu,
             }
 
             if (pdu->scoped_pdu.decrypted_pdu->error_status == NO_ERROR
-                    || pdu->scoped_pdu.decrypted_pdu->error_status == TOO_BIG) {
+                || pdu->scoped_pdu.decrypted_pdu->error_status == TOO_BIG) {
                 pdu->scoped_pdu.decrypted_pdu->error_status = TOO_BIG;
                 pdu->scoped_pdu.decrypted_pdu->error_index =
-                        pdu->scoped_pdu.decrypted_pdu->num_of_bindings + 1;
+                    pdu->scoped_pdu.decrypted_pdu->num_of_bindings + 1;
             }
         } else {
             syslog(LOG_WARNING, "failed to encode response PDU : too big");

@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -84,6 +84,10 @@ typedef struct {
     uint32_t (*get_engine_boots)(void);
     uint32_t (*get_engine_time)(void);
 
+    /* anti-replay */
+    uint32_t last_incoming_time;
+    uint32_t last_incoming_msg;
+
 } SnmpUSMContext;
 
 /**
@@ -151,7 +155,7 @@ int derive_usm_diversified_keys(const uint8_t *engine_id,
  * @return 0 on success, negative number on processing error.
  */
 int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
-        const SnmpUSMContext *context, const int time_sync);
+        SnmpUSMContext *context, int time_sync);
 
 /**
  * @internal

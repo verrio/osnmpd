@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -227,7 +227,7 @@ static int decode_ber_length(buf_t *buffer)
         } else {
             int pos = 2;
             int len = 0;
-            while (lol > 0) {
+            while (lol-- > 0) {
                 len = (len << 8) | (0x000000ff & buffer->buffer[pos++]);
             }
             return len + pos;

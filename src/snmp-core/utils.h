@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -109,6 +109,28 @@ int read_from_file(const char *path, uint8_t **dst, size_t *dst_len);
 
 /**
  * @internal
+ * read_unsigned_from_file - reads unsigned int from file
+ *
+ * @param file   IN - file name
+ * @param dst    OUT - destination
+ *
+ * @return 0 on success, -1 on failure.
+ */
+int read_unsigned_from_file(const char *file, uint32_t *dst);
+
+/**
+ * @internal
+ * read_unsigned64_from_file - reads unsigned 64-bit int from file
+ *
+ * @param file   IN - file name
+ * @param dst    OUT - destination
+ *
+ * @return 0 on success, -1 on failure.
+ */
+int read_unsigned64_from_file(const char *file, uint64_t *dst);
+
+/**
+ * @internal
  * write_to_file - Write buffer to file.
  *
  * @param path IN - pathname of file to be (over)written
@@ -118,5 +140,24 @@ int read_from_file(const char *path, uint8_t **dst, size_t *dst_len);
  * @return 0 on success, -1 on error.
  */
 int write_to_file(const char *path, const uint8_t *val, const size_t val_len);
+
+/**
+ * @internal
+ * set_netmask - Sets the netmask for given prefix length.
+ *
+ * @param prefix_len IN - address prefix length
+ * @param buf OUT - output buffer
+ * @param buf_len IN - buffer length
+ */
+void set_netmask(const int prefix_len, uint8_t *buf, const size_t buf_len);
+
+/**
+ * @internal
+ * trim_string - trims the leading and trailing whitespace from the given string.
+ *
+ * @param str IN/OUT - string to be trimmed
+ * @return  offset to new string
+ */
+char *trim_string(char *str);
 
 #endif /* SRC_SNMP_CORE_UTILS_H_ */

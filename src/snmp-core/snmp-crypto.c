@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -134,6 +134,34 @@ static void generate_iv(uint8_t *iv, uint32_t engine_time, uint32_t engine_boots
     iv[6] = engine_time >> 8;
     iv[7] = engine_time;
     memcpy(&iv[8], local_iv, AES_IV_LEN >> 1);
+}
+
+static int check_replay_counter(const SnmpPDU *pdu, SnmpUSMContext *context)
+{
+    if (context->get_engine_boots() !=
+            pdu->security_parameters.authoritative_engine_boots) {
+        return -1;
+    }
+
+    uint32_t engine_time = context->get_engine_time();
+    if (engine_time < context->last_incoming_time) {
+        context->last_incoming_time = 0;
+    }
+
+    if (abs(engine_time - pdu->security_parameters.authoritative_engine_time) > 500) {
+        /* RFC requires 150 sec max, but some clients seem
+         * to go out-of-sync too fast that way */
+        return -1;
+    } else if (pdu->security_parameters.authoritative_engine_time <
+        context->last_incoming_time) {
+        return -1;
+    } else if (pdu->security_parameters.authoritative_engine_time ==
+        context->last_incoming_time &&
+        pdu->message_id == context->last_incoming_msg) {
+        return -1;
+    }
+
+    return 0;
 }
 
 static int decrypt_scoped_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
@@ -315,7 +343,7 @@ int derive_usm_diversified_keys(const uint8_t *engine_id,
 }
 
 int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
-        const SnmpUSMContext *context, const int time_sync)
+        SnmpUSMContext *context, int time_sync)
 {
     /* validate PDU header */
     if (context->level > NO_AUTH_NO_PRIV && !pdu->is_authenticated) {
@@ -335,17 +363,8 @@ int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
                     || pdu->security_parameters.authoritative_engine_time != 0) {
                 return PROCESSING_SECURITY_TIME_INVALID;
             }
-        } else {
-            if (context->get_engine_boots() !=
-                    pdu->security_parameters.authoritative_engine_boots) {
-                return PROCESSING_SECURITY_TIME_INVALID;
-            } else if (abs(
-                    context->get_engine_time()
-                    - pdu->security_parameters.authoritative_engine_time) > 500) {
-                return PROCESSING_SECURITY_TIME_INVALID;
-                /* RFC requires 150 sec max, but some clients seem
-                 * to go out-of-sync quickly that way */
-            }
+        } else if (check_replay_counter(pdu, context)){
+            return PROCESSING_SECURITY_TIME_INVALID;
         }
 
         /* validate tag */
@@ -368,6 +387,9 @@ int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
     if (decrypt_scoped_pdu(pdu, scoped_pdu, context)) {
         return PROCESSING_SECURITY_ENC_FAILED;
     }
+
+    context->last_incoming_msg = pdu->message_id;
+    context->last_incoming_time = pdu->security_parameters.authoritative_engine_time;
 
     return PROCESSING_NO_ERROR;
 }

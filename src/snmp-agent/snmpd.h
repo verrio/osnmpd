@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,5 +34,21 @@ typedef enum {
 	USER_ADMIN = 3,
 	NUMBER_OF_USER_SLOTS = 4
 } SnmpUserSlot;
+
+/**
+ * @internal
+ * set_debug_logging - enables/disables the debug logging
+ *
+ * @param enabled IN - new debug logging state
+ */
+void set_debug_logging(int enabled);
+
+/**
+ * @internal
+ * debug_logging_enabled - returns the debug logging state.
+ *
+ * @return 0 when disabled, 1 when enabled.
+ */
+int debug_logging_enabled(void);
 
 #endif /* SRC_SNMPD_H_ */

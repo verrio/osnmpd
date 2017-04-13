@@ -57,20 +57,26 @@ DEF_METHOD(get_var, SnmpErrorStatus, MibModule, SingleLevelMibModule,
         }
 
         default: {
-            /* expects the entry indicator, column and index specifiers */
-            if (binding->oid.len < managed_prefix->len + 4 ||
-                binding->oid.subid[managed_prefix->len + 1] != 1) {
-                goto no_such_object;
-            }
+            if (this->leaves[id - this->offset] & LEAF_SUBTREE) {
+                MibModule *sub_module =
+                    &(this->sub_modules[this->leaves[id - this->offset] & 0xff]);
+                return sub_module->get_var(sub_module, binding);
+            } else {
+                /* expects the entry indicator, column and index specifiers */
+                if (binding->oid.len < managed_prefix->len + 4 ||
+                    binding->oid.subid[managed_prefix->len + 1] != 1) {
+                    goto no_such_object;
+                }
 
-            int column = binding->oid.subid[managed_prefix->len + 2];
-            if (column < 1 || column > this->leaves[id - this->offset]) {
-                goto no_such_object;
-            }
+                int column = binding->oid.subid[managed_prefix->len + 2];
+                if (column < 1 || column > this->leaves[id - this->offset]) {
+                    goto no_such_object;
+                }
 
-            SubOID *row = &binding->oid.subid[managed_prefix->len + 3];
-            size_t row_len = binding->oid.len - managed_prefix->len - 3;
-            return this->get_tabular(this, id, column, row, row_len, binding, 0);
+                SubOID *row = &binding->oid.subid[managed_prefix->len + 3];
+                size_t row_len = binding->oid.len - managed_prefix->len - 3;
+                return this->get_tabular(this, id, column, row, row_len, binding, 0);
+            }
         }
     }
 
@@ -109,7 +115,10 @@ DEF_METHOD(get_next_var, SnmpErrorStatus, MibModule, SingleLevelMibModule,
 
                 default: {
                     id = binding->oid.subid[managed_prefix->len];
-                    if (binding->oid.subid[managed_prefix->len + 1] < 1) {
+
+                    if (this->leaves[id - this->offset] & LEAF_SUBTREE) {
+                        /* start of subtree */
+                    } else if (binding->oid.subid[managed_prefix->len + 1] < 1) {
                         /* start of table */
                     } else if (binding->oid.subid[managed_prefix->len + 1] > 1) {
                         /* skip table */
@@ -152,16 +161,37 @@ DEF_METHOD(get_next_var, SnmpErrorStatus, MibModule, SingleLevelMibModule,
             }
 
             default: {
-                SnmpErrorStatus status = this->get_tabular(this, id,
-                       column, row, row_len, binding, 1);
-                if (status != NO_ERROR ||
-                    binding->type != SMI_EXCEPT_END_OF_MIB_VIEW) {
-                    return status;
-                } else if (column < this->leaves[id - this->offset]) {
-                    column++;
-                } else {
+                if (this->leaves[id - this->offset] & LEAF_SUBTREE) {
+                    SnmpErrorStatus status;
+                    MibModule *sub_module =
+                        &(this->sub_modules[this->leaves[id - this->offset] & 0xff]);
+                    int orig_len = binding->oid.len;
+                    if (id != binding->oid.subid[managed_prefix->len]) {
+                        binding->oid.len = managed_prefix->len + 1;
+                    }
+                    status = sub_module->get_next_var(sub_module, binding);
+
+                    if (status != NO_ERROR ||
+                        binding->type != SMI_EXCEPT_END_OF_MIB_VIEW) {
+                        return status;
+                    }
+                    if (id != binding->oid.subid[managed_prefix->len]) {
+                        binding->oid.len = orig_len;
+                    }
                     column = 1;
                     id++;
+                } else {
+                    SnmpErrorStatus status = this->get_tabular(this, id,
+                           column, row, row_len, binding, 1);
+                    if (status != NO_ERROR ||
+                        binding->type != SMI_EXCEPT_END_OF_MIB_VIEW) {
+                        return status;
+                    } else if (column < this->leaves[id - this->offset]) {
+                        column++;
+                    } else {
+                        column = 1;
+                        id++;
+                    }
                 }
                 break;
             }
@@ -208,20 +238,27 @@ DEF_METHOD(set_var, SnmpErrorStatus, MibModule, SingleLevelMibModule,
         }
 
         default: {
-            /* expects the entry indicator, column and index specifiers */
-            if (binding->oid.len < managed_prefix->len + 4 ||
-                binding->oid.subid[managed_prefix->len + 1] != 1) {
-                return NO_CREATION;
-            }
+            if (this->leaves[id - this->offset] & LEAF_SUBTREE) {
+                MibModule *sub_module =
+                    &(this->sub_modules[this->leaves[id - this->offset] & 0xff]);
+                return sub_module->set_var(sub_module, binding, dry_run);
+            } else {
+                /* expects the entry indicator, column and index specifiers */
+                if (binding->oid.len < managed_prefix->len + 4 ||
+                    binding->oid.subid[managed_prefix->len + 1] != 1) {
+                    return NO_CREATION;
+                }
 
-            int column = binding->oid.subid[managed_prefix->len + 2];
-            if (column < 1 || column > this->leaves[id - this->offset]) {
-                return NO_CREATION;
-            }
+                int column = binding->oid.subid[managed_prefix->len + 2];
+                if (column < 1 || column > this->leaves[id - this->offset]) {
+                    return NO_CREATION;
+                }
 
-            SubOID *index = &binding->oid.subid[managed_prefix->len + 3];
-            size_t index_len = binding->oid.len - managed_prefix->len - 3;
-            return this->set_tabular(this, id, column, index, index_len, binding, dry_run);
+                SubOID *index = &binding->oid.subid[managed_prefix->len + 3];
+                size_t index_len = binding->oid.len - managed_prefix->len - 3;
+                return this->set_tabular(this, id, column, index, index_len,
+                        binding, dry_run);
+            }
         }
     }
 }
@@ -231,7 +268,7 @@ int init_single_level_module(SingleLevelMibModule *module, int offset, int count
     module->offset = offset;
     module->limit = offset + count - 1;
     module->leaves = malloc(sizeof(uint16_t) * count);
-    if (module == NULL) {
+    if (module->leaves == NULL) {
         return -1;
     }
 
@@ -251,4 +288,5 @@ int init_single_level_module(SingleLevelMibModule *module, int offset, int count
 void finish_single_level_module(SingleLevelMibModule *module)
 {
     free(module->leaves);
+    free(module);
 }

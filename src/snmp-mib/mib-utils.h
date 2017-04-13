@@ -24,6 +24,16 @@
 #ifndef SRC_SNMP_MIB_MIB_UTILS_H_
 #define SRC_SNMP_MIB_MIB_UTILS_H_
 
+#include "snmp-core/snmp-pdu.h"
+
+/**
+ * @internal
+ * fetch_empty_cache - NOP
+ *
+ * @return returns NULL
+ */
+void *fetch_empty_cache(void);
+
 /**
  * @internal
  * search_int_indices - search for next integer row
@@ -78,6 +88,21 @@ int bsearch_oid_indices(const SubOID *rows[], const size_t row_len[],
 
 /**
  * @internal
+ * bsearch_next - binary search array at given base for successor
+ *
+ * @param key        IN - infimum of result set
+ * @param base       IN - array base
+ * @param len        IN - array length
+ * @param width      IN - size of single element
+ * @param cmp        IN - compare function
+ *
+ * @return matching index, or -1 if no match found.
+ */
+int bsearch_next(const void *key, const void *base, size_t len, size_t width,
+        int (*cmp)(const void *, const void *));
+
+/**
+ * @internal
  * lsearch_string_indices - linear search (unsorted) rows with string index
  *
  * @param rows       IN - array containing row indices
@@ -105,6 +130,20 @@ int lsearch_string_indices(const char *rows[], const int row_count,
  */
 int cmp_index_to_array(const uint8_t *arr, const size_t arr_len,
         const SubOID *val, const size_t val_len);
+
+/**
+ * @internal
+ * cmp_fixed_index_to_array - compare OID index of fixed length to a byte array
+ *
+ * @param arr      IN - array to be compared against
+ * @param arr_len  IN - array size
+ * @param val      IN - fixed OID index
+ * @param val_len  IN - length of index
+ *
+ * @return -1 if index is smaller than byte array, 1 if larger, 0 if equal.
+ */
+int cmp_fixed_index_to_array(const uint8_t *arr, const size_t arr_len,
+    const SubOID *val, const size_t val_len);
 
 /**
  * @internal
@@ -145,5 +184,44 @@ int fill_row_index_oid(OID *oid, const SubOID *row_indx,
  */
 int fill_row_index_string(OID *oid, const uint8_t *row_indx,
         const size_t row_indx_len);
+
+/**
+ * @internal
+ * fill_row_fixed_index_string - extend OID with fixed string row index
+ *
+ * @param oid          OUT - output OID
+ * @param row_indx     IN - row index
+ * @param row_indx_len IN - row index length
+ *
+ * @return -1 if index is too large, 0 on succes.
+ */
+int fill_row_index_fixed_string(OID *oid, const uint8_t *row_indx,
+        const size_t row_indx_len);
+
+/**
+ * @internal
+ * sort_list - sort single-linked list
+ *
+ * @param head           IN - output OID
+ * @param cmp_entries    IN - comparison function
+ * @param next_entry     IN - successor function
+ * @param set_next_entry IN - set successor function
+ *
+ * @return new list head.
+ */
+void *sort_list(void *head,
+    int (*cmp_entries)(const void *, const void *), void *(*next_entry)(void *),
+    void (*set_next_entry)(void *, void *));
+
+/**
+ * @internal
+ * validate_boolean_value - check if given binding contains a boolean value
+ *                          (starting from zero)
+ *
+ * @param binding   IN - variable binding to be validated
+ *
+ * @return result of validation.
+ */
+SnmpErrorStatus validate_boolean_value(SnmpVariableBinding *binding);
 
 #endif /* SRC_SNMP_MIB_MIB_UTILS_H_ */

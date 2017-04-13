@@ -1,4 +1,4 @@
-SUBDIRS = base ip
+SUBDIRS = agent system sensors power ip java-subagent
 
 noinst_LIBRARIES = libsnmp-mib.a
 
@@ -13,4 +13,3 @@ AM_CPPFLAGS = \
 
 install-exec-hook:
 	find $(plugindir) -type f -name \*.la -delete
-

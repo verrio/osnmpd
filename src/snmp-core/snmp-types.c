@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -108,8 +108,13 @@ int encode_OID(const OID *oid, buf_t *dst)
             }
             sub_id--;
         }
-
+    }
+    if (oid->len > 1) {
         if (emit_byte(oid->subid[0] * 0x28 + oid->subid[1], dst)) {
+            return -1;
+        }
+    } else if (oid->len > 0) {
+        if (emit_byte(oid->subid[0] * 0x28, dst)) {
             return -1;
         }
     }

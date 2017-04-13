@@ -124,5 +124,5 @@ int init_single_table_module(SingleTableMibModule *module, int col_offset, int c
 
 void finish_single_table_module(SingleTableMibModule *module)
 {
-    /* NOP */
+    free(module);
 }

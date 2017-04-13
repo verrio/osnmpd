@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -148,6 +148,23 @@ typedef struct {
 
 } SnmpAgentStatistics;
 
+/* cache for MIB modules */
+typedef struct {
+
+    /* last time cache was updated */
+    uint32_t last_update;
+
+    /* custom cache structure */
+    void *val;
+
+    /* called when updating the current cached value */
+    void *(*update_val)(void);
+
+    /* called when freeing the current cached value */
+    void (*free_val)(void *);
+
+} SnmpMibModuleCache;
+
 /**
  * @internal
  * init_cache - initialize the agent cache
@@ -198,10 +215,33 @@ uint32_t get_uptime(void);
 
 /**
  * @internal
+ * rebase_duration - returns the given duration relative to the agent's uptime.
+ *
+ * @param duration  IN - duration in seconds
+ *
+ * @return uptime at duration start, or 0 if preceeds agent's startup.
+ */
+uint32_t rebase_duration(uint32_t duration);
+
+/**
+ * @internal
  * get_statistics - returns the agent's statistics
  *
  * @return agent statistics
  */
 SnmpAgentStatistics *get_statistics(void);
+
+/**
+ * @internal
+ * get_mib_cache - returns the cache for MIB module
+ *
+ * @param fetch_cache IN - function pointer for refreshing the cache
+ * @param free_cache IN - function pointer for freeing the cache
+ * @param max_age IN - Maximum cache age allowed before refreshing
+ *
+ * @return cache value, or NULL if not available.
+ */
+void *get_mib_cache(void *(*fetch_cache)(void), void (*free_cache)(void *),
+        uint32_t max_age);
 
 #endif /* SRC_SNMP_AGENT_AGENT_CACHE_H_ */

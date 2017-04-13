@@ -105,5 +105,4 @@ typedef struct MibApplicationModule {
 
 } MibApplicationModule;
 
-
 #endif /* SRC_MIB_MODULE_MIB_MODULE_H_ */
