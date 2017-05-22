@@ -117,7 +117,6 @@ ENGINE *get_smartcard_engine(void);
 #endif
 
 /**
- * @internal
  * derive_usm_master_keys - Derive the master keyset for a given pair of passwords.
  *
  * @param priv_password IN - privacy password (null terminated)
@@ -130,7 +129,6 @@ int derive_usm_master_keys(const char *priv_password,
         const char *auth_password, SnmpUSMContext *context);
 
 /**
- * @internal
  * derive_usm_diversified_keys - Derive diversified (localized) keys
  * for the given USM context and engine ID.
  *
@@ -144,7 +142,6 @@ int derive_usm_diversified_keys(const uint8_t *engine_id,
         const size_t engine_id_len, SnmpUSMContext *context);
 
 /**
- * @internal
  * process_incoming_pdu - authenticates and decrypts an incoming PDU.
  *
  * @param pdu IN - Incoming PDU without parsed scoped PDU.
@@ -158,7 +155,6 @@ int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
         SnmpUSMContext *context, int time_sync);
 
 /**
- * @internal
  * process_outgoing_pdu - authenticates, encrypts and marshalls an outgoing PDU.
  *
  * @param pdu IN - PDU to be sent out.

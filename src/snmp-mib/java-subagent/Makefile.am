@@ -5,7 +5,7 @@ plugin_LTLIBRARIES = libsnmp-mib-java-sub-agent.la
 libsnmp_mib_java_sub_agent_la_SOURCES = \
 	activator.c java-subagent.h java-subagent.c
 libsnmp_mib_java_sub_agent_la_CFLAGS= \
-	-fPIC
+	-fPIC -fvisibility=hidden
 libsnmp_mib_java_sub_agent_la_LDFLAGS = \
         -no-undefined -avoid-version -shared -fPIC
 

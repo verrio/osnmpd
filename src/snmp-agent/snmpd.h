@@ -36,19 +36,19 @@ typedef enum {
 } SnmpUserSlot;
 
 /**
- * @internal
  * set_debug_logging - enables/disables the debug logging
  *
  * @param enabled IN - new debug logging state
  */
+__attribute__((visibility("default")))
 void set_debug_logging(int enabled);
 
 /**
- * @internal
  * debug_logging_enabled - returns the debug logging state.
  *
  * @return 0 when disabled, 1 when enabled.
  */
+__attribute__((visibility("default")))
 int debug_logging_enabled(void);
 
 #endif /* SRC_SNMPD_H_ */

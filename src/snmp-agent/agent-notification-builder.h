@@ -29,7 +29,6 @@
 #define NOTIFICATION_VERSION	0x00
 
 /**
- * @internal
  * build_authentication_failure_notification - build new authorization exception
  * notification.
  *
@@ -41,7 +40,6 @@
 int build_authentication_failure_notification(const char *source, buf_t *buf);
 
 /**
- * @internal
  * build_snmp_notification_scoped_pdu - build new trap/inform PDU from
  * received notification.
  *

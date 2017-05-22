@@ -167,17 +167,16 @@ typedef struct {
 } SnmpVariableBinding;
 
 /**
- * @internal
  * init_OID - Initialize subOID list with given arguments.
  *
  * @param oid IN/OUT - destination OID.
  * @param len IN - length of varargs list.
  * @param varargs IN - list of sub OIDs.
  */
+__attribute__((visibility("default")))
 void init_OID(OID *oid, size_t len, ...);
 
 /**
- * @internal
  * decode_OID - Extracts an OID from the given BER encoded TLV.
  *
  * @param src IN - TLV containing OID.
@@ -185,10 +184,10 @@ void init_OID(OID *oid, size_t len, ...);
  *
  * @return 0 on success, -1 on parse error.
  */
+__attribute__((visibility("default")))
 int decode_OID(const asn1raw_t *src, OID *oid);
 
 /**
- * @internal
  * encode_OID - Encodes OID to BER TLV.
  *
  * @param oid IN - OID to be encoded.
@@ -196,10 +195,10 @@ int decode_OID(const asn1raw_t *src, OID *oid);
  *
  * @return 0 on success, -1 on encoding error.
  */
+__attribute__((visibility("default")))
 int encode_OID(const OID *oid, buf_t *dst);
 
 /**
- * @internal
  * encode_OID_to_dotted_string - Encodes OID to dotted string.
  *
  * @param oid IN - OID to be encoded.
@@ -208,10 +207,10 @@ int encode_OID(const OID *oid, buf_t *dst);
  *
  * @return 0 on success, -1 on encoding error.
  */
+__attribute__((visibility("default")))
 int encode_OID_to_dotted_string(const OID *oid, uint8_t *buf, size_t buf_len);
 
 /**
- * @internal
  * prefix_compare_OID - Check if a given OID is a prefix of another OID
  *
  * @parm o1 IN - OID prefix to check against
@@ -220,10 +219,10 @@ int encode_OID_to_dotted_string(const OID *oid, uint8_t *buf, size_t buf_len);
  * @return 0 on prefix match, -1 when o2 is greater than the given prefix,
  * 1 otherwise.
  */
+__attribute__((visibility("default")))
 int prefix_compare_OID(const OID *o1, const OID *o2);
 
 /**
- * @internal
  * compare_OID - Compares OIDs in lexicographic ordering
  *
  * @parm o1 IN - first OID
@@ -231,10 +230,10 @@ int prefix_compare_OID(const OID *o1, const OID *o2);
  *
  * @return 0 on equality, -1 when o1 is less than o2, 1 otherwise.
  */
+__attribute__((visibility("default")))
 int compare_OID(const OID *o1, const OID *o2);
 
 /**
- * @internal
  * decode_variable_binding - Extracts variable binding from given BER encoded TLV.
  *
  * @param src IN - TLV containing variable binding.
@@ -246,7 +245,6 @@ int compare_OID(const OID *o1, const OID *o2);
 int decode_variable_binding(const asn1raw_t *src, SnmpVariableBinding *binding);
 
 /**
- * @internal
  * encode_variable_binding - Encodes a variable binding to a BER TLV.
  *
  * @param binding IN - variable binding to be encoded.
@@ -257,7 +255,6 @@ int decode_variable_binding(const asn1raw_t *src, SnmpVariableBinding *binding);
 int encode_variable_binding(const SnmpVariableBinding *binding, buf_t *dst);
 
 /**
- * @internal
  * dump_variable_binding - Dumps the content of the variable binding to syslog.
  *
  * @param binding IN - binding to be logged.

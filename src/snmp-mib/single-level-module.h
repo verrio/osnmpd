@@ -279,7 +279,6 @@ typedef struct SingleLevelMibModule {
 } SingleLevelMibModule;
 
 /**
- * @internal
  * init_single_level_module - initialise new single-level module.
  *
  * @param module  OUT - module to be initialized
@@ -289,14 +288,15 @@ typedef struct SingleLevelMibModule {
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int init_single_level_module(SingleLevelMibModule *module, int offset, int count, ...);
 
 /**
- * @internal
  * finish_single_level_module - finalise a single-level module.
  *
  * @param module  IN - module to be finalised
  */
+__attribute__((visibility("default")))
 void finish_single_level_module(SingleLevelMibModule *module);
 
 #endif /* SRC_SNMP_MIB_SINGLE_LEVEL_MODULE_H_ */

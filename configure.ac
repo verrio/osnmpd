@@ -54,7 +54,7 @@ AC_TYPE_SIZE_T
 
 AC_LIB_PREFIX
 LT_INIT
-AM_INIT_AUTOMAKE([-Wall foreign])
+AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 
 AC_MSG_CHECKING([whether to build for Microsoft Windows target])
 AC_COMPILE_IFELSE(
@@ -234,20 +234,33 @@ AC_CONFIG_FILES([
 ])
 AC_OUTPUT
 
-AC_MSG_RESULT([])
-AC_MSG_RESULT([ osnmpd has been configured with the following options:])
-AC_MSG_RESULT([-------------------------------------------------------])
-AC_MSG_RESULT([enterprise OID:            ${ENTERPRISE_MIB}])
-AC_MSG_RESULT([enterprise number:         ${ENTERPRISE_NUMBER}])
-AC_MSG_RESULT([administrator:             ${ADMIN_USER_NAME}])
-AC_MSG_RESULT([max PDU size:              ${MAX_PDU_SIZE}])
-AC_MSG_RESULT([smartcard support:         ${enable_smartcard}])
-AC_MSG_RESULT([serial number support:     ${enable_serial_number}])
-AC_MSG_RESULT([])
-AC_MSG_RESULT([include SNMP agent module:    ${enable_mib_agent}])
-AC_MSG_RESULT([include system module:        ${enable_mib_system}])
-AC_MSG_RESULT([include power module:         ${enable_mib_power}])
-AC_MSG_RESULT([include IP module:            ${enable_mib_ip}])
-AC_MSG_RESULT([include sensors module:       ${enable_mib_sensors}])
-AC_MSG_RESULT([include Java subagent module: ${enable_mib_java_subagent}])
-AC_MSG_RESULT([])
+cat << EOF
+
+  osnmpd has been configured with the following options:
+  ----------------------------------------------------------
+
+  install prefix .................. : ${prefix}
+  C preprocessor .................. : ${CPP}
+  C preprocessor flags ............ : ${CPPFLAGS}
+  C compiler ...................... : ${CC}
+  C compiler flags ................ : ${CFLAGS} ${VISIBILITY_CFLAGS}
+  linker .......................... : ${LD}
+  linker flags .................... : ${LDFLAGS}
+  extra libraries ................. : ${LIBS}  
+  
+  enterprise OID .................. : ${ENTERPRISE_MIB}
+  enterprise number ............... : ${ENTERPRISE_NUMBER}
+  administrator ................... : ${ADMIN_USER_NAME}
+  max PDU size .................... : ${MAX_PDU_SIZE}
+  smartcard support ............... : ${enable_smartcard}
+  serial number support ........... : ${enable_serial_number}
+  
+  include SNMP agent module ....... : ${enable_mib_agent}
+  include system module ........... : ${enable_mib_system}
+  include power module ............ : ${enable_mib_power}
+  include IP module ............... : ${enable_mib_ip}
+  include sensors module .......... : ${enable_mib_sensors}
+  include Java subagent module .... : ${enable_mib_java_subagent}
+
+EOF
+

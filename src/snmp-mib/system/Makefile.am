@@ -10,7 +10,8 @@ libsnmp_mib_system_la_SOURCES = \
 	hr-sw-run-module.h hr-sw-run-module.c \
 	hr-sw-perf-module.h hr-sw-perf-module.c \
 	hr-sw-installed-module.h hr-sw-installed-module.c \
-	ucd-module.h ucd-memory-module.c ucd-load-module.c ucd-vmstat-module.c \
+	ucd-module.h ucd-memory-module.c \
+	ucd-load-module.c ucd-vmstat-module.c \
 	application-module.h application-module.c \
 	cpu-cache.h cpu-cache.c \
 	device-cache.h device-cache.c \
@@ -18,9 +19,9 @@ libsnmp_mib_system_la_SOURCES = \
 	mem-cache.h mem-cache.c \
 	storage-cache.h storage-cache.c
 libsnmp_mib_system_la_CFLAGS= \
-	-fPIC
+	-fPIC -fvisibility=hidden
 libsnmp_mib_system_la_LDFLAGS = \
-    -no-undefined -avoid-version -shared -fPIC
+	-no-undefined -avoid-version -shared -fPIC
 
 AM_CPPFLAGS = \
         -I$(top_srcdir)/src/snmp-core \
@@ -28,3 +29,4 @@ AM_CPPFLAGS = \
         -I$(top_srcdir)/src/snmp-mib
 
 endif
+

@@ -25,7 +25,6 @@
 #define SRC_SNMP_AGENT_AGENT_INCOMING_H_
 
 /**
- * @internal
  * init_incoming_handler - initialize the handler for incoming user requests.
  *
  * @param poll_descriptor IN/OUT - poll file descriptor on which to register
@@ -35,7 +34,6 @@
 int init_incoming_handler(struct pollfd *poll_descriptor);
 
 /**
- * @internal
  * finish_incoming_handler - finish the handler for incoming user requests.
  *
  * @return 0 on success or -1 on any error
@@ -43,7 +41,6 @@ int init_incoming_handler(struct pollfd *poll_descriptor);
 int finish_incoming_handler(void);
 
 /**
- * @internal
  * handle_request - handle an incoming SNMP request.
  */
 void handle_request(void);

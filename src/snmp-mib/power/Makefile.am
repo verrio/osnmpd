@@ -9,9 +9,9 @@ libsnmp_mib_power_la_SOURCES = \
 	ups-test-module.c ups-control-module.c ups-config-module.c \
 	power-cache.h power-cache.c
 libsnmp_mib_power_la_CFLAGS= \
-	-fPIC
+	-fPIC -fvisibility=hidden
 libsnmp_mib_power_la_LDFLAGS = \
-    -no-undefined -avoid-version -shared -fPIC
+	-no-undefined -avoid-version -shared -fPIC
 
 AM_CPPFLAGS = \
     -I$(top_srcdir)/src/snmp-core \

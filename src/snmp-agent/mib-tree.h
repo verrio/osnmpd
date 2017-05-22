@@ -50,7 +50,6 @@
 #define SNMP_OID_INVALID_TIME_WINDOW_COUNTER SNMP_OID_STATS_MIB,2,0
 
 /**
- * @internal
  * init_mib_tree - initialise the MIB tree.
  *
  * @return 0 on success, negative number on failure
@@ -58,7 +57,6 @@
 int init_mib_tree(void);
 
 /**
- * @internal
  * finish_mib_tree - finalise the MIB tree.
  *
  * @return 0 on success, negative number on failure
@@ -66,7 +64,6 @@ int init_mib_tree(void);
 int finish_mib_tree(void);
 
 /**
- * @internal
  * add_module - add new module to the tree.
  *
  * module_gen IN - module factory.
@@ -74,43 +71,43 @@ int finish_mib_tree(void);
  *
  * @return 0 on success, negative number on failure
  */
+__attribute__((visibility("default")))
 int add_module(MibModule *(*module_gen)(void), char *mod_name);
 
 /**
- * @internal
  * add_app_module - add network application module to the tree.
  *
  * app_module IN - module.
  *
  * @return 0 on success, negative number on failure
  */
+__attribute__((visibility("default")))
 int add_app_module(MibApplicationModule *app_module);
 
 /**
- * @internal
  * dump_mib_tree - print MIB tree to the system log.
  */
+__attribute__((visibility("default")))
 void dump_mib_tree(void);
 
 /**
- * @internal
  * mib_get_or_entries - return list of OR registered entries in the MIB.
  *
  * @return pointer to first OR entry in the list, or NULL if empty
  */
+__attribute__((visibility("default")))
 SysOREntry *mib_get_or_entries(void);
 
 /**
- * @internal
  * mib_get_app_modules - return list of network
  * application modules registered entries in the MIB.
  *
  * @return pointer to first application module in the list, or NULL if empty
  */
+__attribute__((visibility("default")))
 MibApplicationModule *mib_get_app_modules(void);
 
 /**
- * @internal
  * mib_get_entry - fetch the value associated with an entry in the MIB.
  *
  * @param binding IN/OUT - binding containing OID of entry to be fetched.
@@ -122,7 +119,6 @@ MibApplicationModule *mib_get_app_modules(void);
 SnmpErrorStatus mib_get_entry(SnmpVariableBinding *binding);
 
 /**
- * @internal
  * mib_get_next_entry - fetch the value associated with an entry
  * following the given OID in the MIB.
  *
@@ -135,7 +131,6 @@ SnmpErrorStatus mib_get_entry(SnmpVariableBinding *binding);
 SnmpErrorStatus mib_get_next_entry(SnmpVariableBinding *binding);
 
 /**
- * @internal
  * mib_set_entry - set/create the value associated with an entry
  * following the given OID in the MIB.
  *

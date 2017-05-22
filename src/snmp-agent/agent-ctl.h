@@ -27,7 +27,6 @@
 #include <poll.h>
 
 /**
- * @internal
  * init_ctl_handler - initialize the control channel.
  *
  * @param poll_descriptor IN/OUT - poll file descriptor on which to register
@@ -37,7 +36,6 @@
 int init_ctl_handler(struct pollfd *poll_descriptor);
 
 /**
- * @internal
  * finish_ctl_handler - finish the control channel.
  *
  * @return 0 on success or -1 on any error
@@ -45,7 +43,6 @@ int init_ctl_handler(struct pollfd *poll_descriptor);
 int finish_ctl_handler(void);
 
 /**
- * @internal
  * handle_ctl_request - handle an incoming control request.
  */
 void handle_ctl_request(void);

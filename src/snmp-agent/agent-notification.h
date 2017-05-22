@@ -27,7 +27,6 @@
 #include <poll.h>
 
 /**
- * @internal
  * init_notification_handler - initialize the notification handler.
  *
  * @param poll_descriptor OUT - poll file descriptor on which to register
@@ -38,7 +37,6 @@
 int init_notification_handler(struct pollfd *poll_descriptor, int *timeout);
 
 /**
- * @internal
  * finish_notification_handler - finish the notification handler.
  *
  * @return 0 on success or -1 on any error
@@ -46,13 +44,11 @@ int init_notification_handler(struct pollfd *poll_descriptor, int *timeout);
 int finish_notification_handler(void);
 
 /**
- * @internal
  * handle_incoming_notification - handle an incoming SNMP notification.
  */
 void handle_incoming_notification(void);
 
 /**
- * @internal
  * dispatch_auth_failed_notification - dispatch an authentication failure trap.
  *
  * @param source IN - source of the authentication failure

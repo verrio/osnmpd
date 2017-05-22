@@ -18,7 +18,7 @@ libsnmp_mib_agent_la_SOURCES = \
 	vacm-security-group-module.h vacm-security-group-module.c \
 	vacm-views-module.h vacm-views-module.c
 libsnmp_mib_agent_la_CFLAGS= \
-	-fPIC
+	-fPIC -fvisibility=hidden
 libsnmp_mib_agent_la_LDFLAGS = \
         -no-undefined -avoid-version -shared -fPIC
 

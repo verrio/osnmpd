@@ -166,31 +166,28 @@ typedef struct {
 } SnmpMibModuleCache;
 
 /**
- * @internal
- * init_cache - initialize the agent cache
+ * init_cache - initialise the agent cache
  *
  * @return returns 0 on success, -1 on failure.
  */
 int init_cache(void);
 
 /**
- * @internal
- * finish_cache - finalize the agent cache
+ * finish_cache - finalise the agent cache
  *
  * @return returns 0 on success, -1 on failure.
  */
 int finish_cache(void);
 
 /**
- * @internal
  * get_boot_count - returns the SNMP boot counter.
  *
  * @return SNMP boot counter.
  */
+__attribute__((visibility("default")))
 uint32_t get_boot_count(void);
 
 /**
- * @internal
  * reset_boot_count - reset the boot counter.
  *
  * @return returns 0 on success, -1 on failure.
@@ -198,41 +195,40 @@ uint32_t get_boot_count(void);
 int reset_boot_count(void);
 
 /**
- * @internal
  * get_start_time - returns the system uptime counter at agent's startup
  *
  * @return agent startup timestamp in seconds (relative)
  */
+__attribute__((visibility("default")))
 uint64_t get_start_time(void);
 
 /**
- * @internal
  * get_uptime - returns the uptime of the agent (in seconds)
  *
  * @return agent uptime in seconds
  */
+__attribute__((visibility("default")))
 uint32_t get_uptime(void);
 
 /**
- * @internal
  * rebase_duration - returns the given duration relative to the agent's uptime.
  *
  * @param duration  IN - duration in seconds
  *
  * @return uptime at duration start, or 0 if preceeds agent's startup.
  */
+__attribute__((visibility("default")))
 uint32_t rebase_duration(uint32_t duration);
 
 /**
- * @internal
  * get_statistics - returns the agent's statistics
  *
  * @return agent statistics
  */
+__attribute__((visibility("default")))
 SnmpAgentStatistics *get_statistics(void);
 
 /**
- * @internal
  * get_mib_cache - returns the cache for MIB module
  *
  * @param fetch_cache IN - function pointer for refreshing the cache
@@ -241,6 +237,7 @@ SnmpAgentStatistics *get_statistics(void);
  *
  * @return cache value, or NULL if not available.
  */
+__attribute__((visibility("default")))
 void *get_mib_cache(void *(*fetch_cache)(void), void (*free_cache)(void *),
         uint32_t max_age);
 

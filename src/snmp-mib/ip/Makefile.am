@@ -16,7 +16,7 @@ libsnmp_mib_ip_la_SOURCES = \
 	if-cache.h if-cache.c \
 	socket-cache.h socket-cache.c
 libsnmp_mib_ip_la_CFLAGS= \
-	-fPIC
+	-fPIC -fvisibility=hidden
 libsnmp_mib_ip_la_LDFLAGS = \
         -no-undefined -avoid-version -shared -fPIC
 

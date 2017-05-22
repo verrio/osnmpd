@@ -76,7 +76,6 @@ typedef struct SingleTableMibModule {
 } SingleTableMibModule;
 
 /**
- * @internal
  * init_single_table_module - initialise new single-level module.
  *
  * @param module  OUT - module to be initialised
@@ -85,14 +84,15 @@ typedef struct SingleTableMibModule {
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int init_single_table_module(SingleTableMibModule *module, int offset, int limit);
 
 /**
- * @internal
  * finish_single_table_module - finalise a single-level module.
  *
  * @param module  IN - module to be finalised
  */
+__attribute__((visibility("default")))
 void finish_single_table_module(SingleTableMibModule *module);
 
 #endif /* SRC_SNMP_MIB_SINGLE_TABLE_MODULE_H_ */

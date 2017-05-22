@@ -8,3 +8,5 @@
 - add GPS-MIB
 - add UPS-MIB
 - add SCTP-MIB
+- add SNMP-USM-DH-OBJECTS-MIB
+

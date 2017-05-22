@@ -27,15 +27,14 @@
 #include "snmp-core/snmp-pdu.h"
 
 /**
- * @internal
  * fetch_empty_cache - NOP
  *
  * @return returns NULL
  */
+__attribute__((visibility("default")))
 void *fetch_empty_cache(void);
 
 /**
- * @internal
  * search_int_indices - search for next integer row
  *
  * @param index_len  IN - length of index array
@@ -49,12 +48,12 @@ void *fetch_empty_cache(void);
  *
  * @return returns 0 on success, or -1 if no match found.
  */
+__attribute__((visibility("default")))
 int search_int_indices(const size_t index_len, const uint32_t index_min[],
         const uint32_t index_max[], uint32_t row[], const SubOID *cur,
         const size_t cur_len, const int next);
 
 /**
- * @internal
  * bsearch_string_indices - binary search rows with string index
  *
  * @param rows       IN - array containing row indices
@@ -66,11 +65,11 @@ int search_int_indices(const size_t index_len, const uint32_t index_min[],
  *
  * @return matching row index, or -1 if no match found.
  */
+__attribute__((visibility("default")))
 int bsearch_string_indices(const char *rows[], const int row_count,
         const SubOID *cur, const size_t cur_len, const int next);
 
 /**
- * @internal
  * bsearch_oid_indices - binary search rows with OID index
  *
  * @param rows       IN - array containing row indices
@@ -83,11 +82,11 @@ int bsearch_string_indices(const char *rows[], const int row_count,
  *
  * @return matching row index, or -1 if no match found.
  */
+__attribute__((visibility("default")))
 int bsearch_oid_indices(const SubOID *rows[], const size_t row_len[],
         const int row_count, const SubOID *cur, const size_t cur_len, const int next);
 
 /**
- * @internal
  * bsearch_next - binary search array at given base for successor
  *
  * @param key        IN - infimum of result set
@@ -98,11 +97,11 @@ int bsearch_oid_indices(const SubOID *rows[], const size_t row_len[],
  *
  * @return matching index, or -1 if no match found.
  */
+__attribute__((visibility("default")))
 int bsearch_next(const void *key, const void *base, size_t len, size_t width,
         int (*cmp)(const void *, const void *));
 
 /**
- * @internal
  * lsearch_string_indices - linear search (unsorted) rows with string index
  *
  * @param rows       IN - array containing row indices
@@ -114,11 +113,11 @@ int bsearch_next(const void *key, const void *base, size_t len, size_t width,
  *
  * @return matching row index, or -1 if no match found.
  */
+__attribute__((visibility("default")))
 int lsearch_string_indices(const char *rows[], const int row_count,
         const SubOID *cur, const size_t cur_len, const int next);
 
 /**
- * @internal
  * cmp_index_to_array - compare OID index to a byte array
  *
  * @param arr      IN - array to be compared against
@@ -128,11 +127,11 @@ int lsearch_string_indices(const char *rows[], const int row_count,
  *
  * @return -1 if index is smaller than byte array, 1 if larger, 0 if equal.
  */
+__attribute__((visibility("default")))
 int cmp_index_to_array(const uint8_t *arr, const size_t arr_len,
         const SubOID *val, const size_t val_len);
 
 /**
- * @internal
  * cmp_fixed_index_to_array - compare OID index of fixed length to a byte array
  *
  * @param arr      IN - array to be compared against
@@ -142,11 +141,11 @@ int cmp_index_to_array(const uint8_t *arr, const size_t arr_len,
  *
  * @return -1 if index is smaller than byte array, 1 if larger, 0 if equal.
  */
+__attribute__((visibility("default")))
 int cmp_fixed_index_to_array(const uint8_t *arr, const size_t arr_len,
     const SubOID *val, const size_t val_len);
 
 /**
- * @internal
  * cmp_index_to_oid - compare OID index to a static OID
  *
  * @param oid      IN - OID to be compared against
@@ -156,11 +155,11 @@ int cmp_fixed_index_to_array(const uint8_t *arr, const size_t arr_len,
  *
  * @return -1 if index is smaller than the OID, 1 if larger, 0 if equal.
  */
+__attribute__((visibility("default")))
 int cmp_index_to_oid(const SubOID *oid, const size_t oid_len,
         const SubOID *val, const size_t val_len);
 
 /**
- * @internal
  * fill_row_index_oid - extend OID with subOID row index
  *
  * @param oid          OUT - output OID
@@ -169,11 +168,11 @@ int cmp_index_to_oid(const SubOID *oid, const size_t oid_len,
  *
  * @return -1 if index is too large, 0 on succes.
  */
+__attribute__((visibility("default")))
 int fill_row_index_oid(OID *oid, const SubOID *row_indx,
         const size_t row_indx_len);
 
 /**
- * @internal
  * fill_row_index_string - extend OID with string row index
  *
  * @param oid          OUT - output OID
@@ -182,11 +181,11 @@ int fill_row_index_oid(OID *oid, const SubOID *row_indx,
  *
  * @return -1 if index is too large, 0 on succes.
  */
+__attribute__((visibility("default")))
 int fill_row_index_string(OID *oid, const uint8_t *row_indx,
         const size_t row_indx_len);
 
 /**
- * @internal
  * fill_row_fixed_index_string - extend OID with fixed string row index
  *
  * @param oid          OUT - output OID
@@ -195,11 +194,11 @@ int fill_row_index_string(OID *oid, const uint8_t *row_indx,
  *
  * @return -1 if index is too large, 0 on succes.
  */
+__attribute__((visibility("default")))
 int fill_row_index_fixed_string(OID *oid, const uint8_t *row_indx,
         const size_t row_indx_len);
 
 /**
- * @internal
  * sort_list - sort single-linked list
  *
  * @param head           IN - output OID
@@ -209,12 +208,12 @@ int fill_row_index_fixed_string(OID *oid, const uint8_t *row_indx,
  *
  * @return new list head.
  */
+__attribute__((visibility("default")))
 void *sort_list(void *head,
     int (*cmp_entries)(const void *, const void *), void *(*next_entry)(void *),
     void (*set_next_entry)(void *, void *));
 
 /**
- * @internal
  * validate_boolean_value - check if given binding contains a boolean value
  *                          (starting from zero)
  *
@@ -222,6 +221,7 @@ void *sort_list(void *head,
  *
  * @return result of validation.
  */
+__attribute__((visibility("default")))
 SnmpErrorStatus validate_boolean_value(SnmpVariableBinding *binding);
 
 #endif /* SRC_SNMP_MIB_MIB_UTILS_H_ */

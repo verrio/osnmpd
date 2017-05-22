@@ -174,7 +174,6 @@ typedef struct {
 } SnmpPDU;
 
 /**
- * @internal
  * decode_snmp_pdu - Extracts an SNMP PDU from a given BER encoded TLV.
  *
  * @param src IN - TLV containing SNMP PDU.
@@ -186,7 +185,6 @@ typedef struct {
 int decode_snmp_pdu(const asn1raw_t *src, SnmpPDU *pdu);
 
 /**
- * @internal
  * encode_snmp_pdu - Encodes an SNMP pdu into a BER TLV.
  *
  * @param pdu IN - PDU to be encoded.
@@ -200,7 +198,6 @@ int decode_snmp_pdu(const asn1raw_t *src, SnmpPDU *pdu);
 int encode_snmp_pdu(const SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu);
 
 /**
- * @internal
  * decode_usm_security_parameters - Extracts USM security parameters
  * from given BER encoded TLV.
  *
@@ -212,7 +209,6 @@ int encode_snmp_pdu(const SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu);
 int decode_usm_security_parameters(const asn1raw_t *src, SnmpUSMSecurityParameters *params);
 
 /**
- * @internal
  * encode_usm_security_parameters - Encodes the USM security parameters to a BER TLV.
  *
  * @param params IN - USM parameter block to be encoded.
@@ -223,7 +219,6 @@ int decode_usm_security_parameters(const asn1raw_t *src, SnmpUSMSecurityParamete
 int encode_usm_security_parameters(const SnmpUSMSecurityParameters *params, buf_t *dst);
 
 /**
- * @internal
  * decode_snmp_scoped_pdu - Extracts a scoped SNMP PDU from a
  * given BER encoded TLV.
  *
@@ -235,7 +230,6 @@ int encode_usm_security_parameters(const SnmpUSMSecurityParameters *params, buf_
 int decode_snmp_scoped_pdu(const asn1raw_t *src, SnmpScopedPDU *pdu);
 
 /**
- * @internal
  * encode_snmp_scoped_pdu - Encodes a scoped SNMP pdu into a BER TLV.
  *
  * @param pdu IN - Scoped PDU to be encoded.
@@ -246,7 +240,6 @@ int decode_snmp_scoped_pdu(const asn1raw_t *src, SnmpScopedPDU *pdu);
 int encode_snmp_scoped_pdu(const SnmpScopedPDU *pdu, buf_t *dst);
 
 /**
- * @internal
  * add_variable_binding - Adds a new variable binding to a scoped PDU.
  *
  * @param pdu IN/OUT - Scoped PDU.
@@ -257,7 +250,6 @@ SnmpVariableBinding *add_variable_binding(SnmpScopedPDU *pdu);
 
 #ifdef DEBUG
 /**
- * @internal
  * dump_pdu - Dumps the content of the SNMP PDU to syslog.
  *
  * @param pdu IN - PDU to be logged.
@@ -266,7 +258,6 @@ SnmpVariableBinding *add_variable_binding(SnmpScopedPDU *pdu);
 void dump_snmp_pdu(const SnmpPDU *pdu, const int scoped_pdu_decrypted);
 
 /**
- * @internal
  * dump_pdu - Dumps the content of the scoped PDU to syslog.
  *
  * @param pdu IN - PDU to be logged.

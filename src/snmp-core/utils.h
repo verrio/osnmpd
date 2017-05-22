@@ -35,7 +35,6 @@
 #endif
 
 /**
- * @internal
  * to_hex - Converts byte array to null-terminated string of hex characters.
  *
  * @param byte_array      IN - pointer to start of byte array
@@ -46,11 +45,11 @@
  * @return size of resulting string (including null terminator),
  * or -1 on any error
  */
+__attribute__((visibility("default")))
 ssize_t to_hex(const uint8_t *byte_array, const size_t byte_array_size,
         char *destination, const size_t destination_max);
 
 /**
- * @internal
  * from_hex - Converts hex string to sequence of bytes.
  *
  * @param hex_str         IN - pointer to start of hex string
@@ -59,11 +58,11 @@ ssize_t to_hex(const uint8_t *byte_array, const size_t byte_array_size,
  *
  * @return size of resulting byte array, or -1 on any error
  */
+__attribute__((visibility("default")))
 ssize_t from_hex(const char *hex_str, uint8_t *byte_array,
         const size_t byte_array_max);
 
 /**
- * @internal
  * strconcat - Concatenate the given strings.
  *
  * @param s1 IN - pointer to start of first string
@@ -71,10 +70,10 @@ ssize_t from_hex(const char *hex_str, uint8_t *byte_array,
  *
  * @return pointer to newly allocated string, or NULL if failed
  */
+__attribute__((visibility("default")))
 char* strconcat(const char *s1, const char *s2);
 
 /**
- * @internal
  * memdup - Duplicate a chunk of memory
  *
  * @param src IN - pointer to start of memory range
@@ -82,10 +81,10 @@ char* strconcat(const char *s1, const char *s2);
  *
  * @return pointer to newly allocated copy, or NULL if failed
  */
+__attribute__((visibility("default")))
 void *memdup(void *src, size_t src_len);
 
 /**
- * @internal
  * is_utf8 - Checks if given byte array contains only UTF-8 encoded characters.
  *
  * @param src IN - pointer to start of byte array
@@ -93,10 +92,10 @@ void *memdup(void *src, size_t src_len);
  *
  * @return 0 if only UTF-8 characters were found, -1 otherwise.
  */
+__attribute__((visibility("default")))
 int is_utf8(const uint8_t *src, const size_t len);
 
 /**
- * @internal
  * read_from_file - Reads the content of given file into memory.
  *
  * @param path IN - pathname of file to be read
@@ -105,10 +104,10 @@ int is_utf8(const uint8_t *src, const size_t len);
  *
  * @return 0 on success, -1 on error.
  */
+__attribute__((visibility("default")))
 int read_from_file(const char *path, uint8_t **dst, size_t *dst_len);
 
 /**
- * @internal
  * read_unsigned_from_file - reads unsigned int from file
  *
  * @param file   IN - file name
@@ -116,10 +115,10 @@ int read_from_file(const char *path, uint8_t **dst, size_t *dst_len);
  *
  * @return 0 on success, -1 on failure.
  */
+__attribute__((visibility("default")))
 int read_unsigned_from_file(const char *file, uint32_t *dst);
 
 /**
- * @internal
  * read_unsigned64_from_file - reads unsigned 64-bit int from file
  *
  * @param file   IN - file name
@@ -127,10 +126,10 @@ int read_unsigned_from_file(const char *file, uint32_t *dst);
  *
  * @return 0 on success, -1 on failure.
  */
+__attribute__((visibility("default")))
 int read_unsigned64_from_file(const char *file, uint64_t *dst);
 
 /**
- * @internal
  * write_to_file - Write buffer to file.
  *
  * @param path IN - pathname of file to be (over)written
@@ -139,25 +138,26 @@ int read_unsigned64_from_file(const char *file, uint64_t *dst);
  *
  * @return 0 on success, -1 on error.
  */
+__attribute__((visibility("default")))
 int write_to_file(const char *path, const uint8_t *val, const size_t val_len);
 
 /**
- * @internal
  * set_netmask - Sets the netmask for given prefix length.
  *
  * @param prefix_len IN - address prefix length
  * @param buf OUT - output buffer
  * @param buf_len IN - buffer length
  */
+__attribute__((visibility("default")))
 void set_netmask(const int prefix_len, uint8_t *buf, const size_t buf_len);
 
 /**
- * @internal
  * trim_string - trims the leading and trailing whitespace from the given string.
  *
  * @param str IN/OUT - string to be trimmed
  * @return  offset to new string
  */
+__attribute__((visibility("default")))
 char *trim_string(char *str);
 
 #endif /* SRC_SNMP_CORE_UTILS_H_ */

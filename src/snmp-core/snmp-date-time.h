@@ -67,7 +67,6 @@
 #define SMI_DATE_AND_TIME_LEN_EX 11
 
 /**
- * @internal
  * decode_timestamp - Extracts a millis timestamp from the given variable binding.
  *
  * @param timestamp OUT - output buffer.
@@ -75,10 +74,10 @@
  *
  * @return 0 on success, -1 on error.
  */
+__attribute__((visibility("default")))
 int decode_timestamp(uint64_t *timestamp, SnmpVariableBinding *binding);
 
 /**
- * @internal
  * encode_date_time - Encodes the given millis timestamp to a DateAndTime field.
  *
  * @param timestamp IN - input timestamp (millis).
@@ -86,6 +85,7 @@ int decode_timestamp(uint64_t *timestamp, SnmpVariableBinding *binding);
  *
  * @return 0 on success, -1 on error.
  */
+__attribute__((visibility("default")))
 int encode_date_time(uint64_t timestamp, SnmpVariableBinding *binding);
 
 #endif /* SRC_SNMP_CORE_SNMP_DATE_TIME_H_ */
