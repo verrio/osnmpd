@@ -35,7 +35,6 @@ extern SubOID target_table_idx[];
 extern size_t target_table_idx_len;
 
 /**
- * @internal
  * init_target_module - creates and initialises a new target module.
  *
  * @return pointer to new module on success, NULL on error.

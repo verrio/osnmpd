@@ -21,21 +21,23 @@
  * SOFTWARE.
  */
 
-#ifndef SRC_SNMP_MIB_AGENT_VACM_ACCESS_MODULE_H_
-#define SRC_SNMP_MIB_AGENT_VACM_ACCESS_MODULE_H_
+#ifndef SRC_SNMP_MIB_AGENT_USM_DH_MODULE_H_
+#define SRC_SNMP_MIB_AGENT_USM_DH_MODULE_H_
 
 #include "snmp-mib/mib-module.h"
 
-/*
- * Contains information about the access table ("vacmAccessTable").
- * Part of the SNMP-VIEW-BASED-ACM-MIB as described in RFC 3415.
+/**
+ * SNMP-USM-DH-OBJECTS-MIB (RFC 2786)
+ * Contains objects required for USM key exchange using a Diffie-Hellman
+ * key exchange.  This procedure is common in DOCSIS CM and CMTS equipment.
  */
+#define SNMP_OID_USM_DH     SNMP_OID_EXPERIMENTAL,101
 
 /**
- * init_vacm_access_module - creates and initialises a new VACM access module.
+ * init_usm_dh_module - creates and initialises a new D-H USM module.
  *
  * @return pointer to new module on success, NULL on error.
  */
-MibModule *init_vacm_access_module(void);
+MibModule *init_usm_dh_module(void);
 
-#endif /* SRC_SNMP_MIB_AGENT_VACM_ACCESS_MODULE_H_ */
+#endif /* SRC_SNMP_MIB_AGENT_USM_DH_MODULE_H_ */

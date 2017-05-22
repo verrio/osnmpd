@@ -37,7 +37,6 @@
  */
 
 /**
- * @internal
  * init_snmp_stats_module - creates and initialises a new SNMP statistics module.
  *
  * @return pointer to new module on success, NULL on error.

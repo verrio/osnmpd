@@ -146,12 +146,20 @@ AC_MSG_RESULT(${enable_mib_system})
 AM_CONDITIONAL([ENABLE_MIB_SYSTEM], [test "${enable_mib_system}" = "yes"])
 
 AC_MSG_CHECKING([whether the power MIB is to be compiled in])
-AC_ARG_WITH(mib-sensors,
+AC_ARG_WITH(mib-power,
 	[  --with-mib-power        Include power MIB module],
 	enable_mib_power=$withval,
 	enable_mib_power=yes)
 AC_MSG_RESULT(${enable_mib_power})
 AM_CONDITIONAL([ENABLE_MIB_POWER], [test "${enable_mib_power}" = "yes"])
+
+AC_MSG_CHECKING([whether the location MIB is to be compiled in])
+AC_ARG_WITH(mib-location,
+	[  --with-mib-location     Include location MIB module],
+	enable_mib_location=$withval,
+	enable_mib_location=yes)
+AC_MSG_RESULT(${enable_mib_location})
+AM_CONDITIONAL([ENABLE_MIB_LOCATION], [test "${enable_mib_location}" = "yes"])
 
 AC_MSG_CHECKING([whether the IP MIB is to be compiled in])
 AC_ARG_WITH(mib-ip,
@@ -228,6 +236,7 @@ AC_CONFIG_FILES([
 	src/snmp-mib/system/Makefile
 	src/snmp-mib/power/Makefile
 	src/snmp-mib/sensors/Makefile
+	src/snmp-mib/location/Makefile
 	src/snmp-mib/ip/Makefile
 	src/snmp-mib/java-subagent/Makefile
 	src/tests/Makefile
@@ -260,7 +269,7 @@ cat << EOF
   include power module ............ : ${enable_mib_power}
   include IP module ............... : ${enable_mib_ip}
   include sensors module .......... : ${enable_mib_sensors}
+  include location module ......... : ${enable_mib_location}
   include Java subagent module .... : ${enable_mib_java_subagent}
 
 EOF
-

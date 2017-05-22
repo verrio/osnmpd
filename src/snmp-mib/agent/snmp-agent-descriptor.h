@@ -27,7 +27,6 @@
 #include "snmp-agent/mib-tree.h"
 
 /**
- * @internal
  * get_snmp_agent_app_module - returns the network application
  * module descriptor for the SNMP agent.
  *

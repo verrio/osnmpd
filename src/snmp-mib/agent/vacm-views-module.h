@@ -32,7 +32,6 @@
  */
 
 /**
- * @internal
  * init_vacm_views_module - creates and initialises a new VACM views module.
  *
  * @return pointer to new module on success, NULL on error.

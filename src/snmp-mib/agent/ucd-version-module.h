@@ -30,7 +30,6 @@
 #define SNMP_OID_UCD_VERSION    SNMP_OID_ENTERPRISES,2021,100
 
 /**
- * @internal
  * init_ucd_version_module - creates and initialises a new UCD version module.
  *
  * @return pointer to new module on success, NULL on error.

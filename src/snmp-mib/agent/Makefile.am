@@ -7,6 +7,7 @@ libsnmp_mib_agent_la_SOURCES = \
 	mpd-stats-module.h mpd-stats-module.c \
 	usm-stats-module.h usm-stats-module.c \
 	usm-users-module.h usm-users-module.c \
+	usm-dh-module.h usm-dh-module.c \
 	snmpv2-module.h snmpv2-module.c \
 	snmp-stats-module.h snmp-stats-module.c \
 	notification-module.h notification-module.c \
@@ -20,11 +21,11 @@ libsnmp_mib_agent_la_SOURCES = \
 libsnmp_mib_agent_la_CFLAGS= \
 	-fPIC -fvisibility=hidden
 libsnmp_mib_agent_la_LDFLAGS = \
-        -no-undefined -avoid-version -shared -fPIC
+	-no-undefined -avoid-version -shared -fPIC
 
 AM_CPPFLAGS = \
-        -I$(top_srcdir)/src/snmp-core \
-        -I$(top_srcdir)/src/snmp-agent \
-        -I$(top_srcdir)/src/snmp-mib
+	-I$(top_srcdir)/src/snmp-core \
+	-I$(top_srcdir)/src/snmp-agent \
+	-I$(top_srcdir)/src/snmp-mib
 
 endif

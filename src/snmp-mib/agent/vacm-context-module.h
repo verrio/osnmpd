@@ -34,7 +34,6 @@
  */
 
 /**
- * @internal
  * init_vacm_context_module - creates and initialises a new VACM context module.
  *
  * @return pointer to new module on success, NULL on error.

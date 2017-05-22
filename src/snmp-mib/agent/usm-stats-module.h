@@ -31,7 +31,6 @@
  */
 
 /**
- * @internal
  * init_usm_stats_module - creates and initialises a new USM stats module.
  *
  * @return pointer to new module on success, NULL on error.

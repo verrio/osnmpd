@@ -33,7 +33,6 @@
  */
 
 /**
- * @internal
  * init_vacm_security_group_module - creates and initialises a new
  * VACM security to group module.
  *

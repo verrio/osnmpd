@@ -31,7 +31,6 @@
  */
 
 /**
- * @internal
  * init_snmpv2_set_module - creates and initialises a new SNMPv2 set module.
  *
  * @return pointer to new module on success, NULL on error.

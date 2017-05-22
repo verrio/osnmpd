@@ -31,7 +31,6 @@
  */
 
 /**
- * @internal
  * init_usm_users_module - creates and initialises a new USM users module.
  *
  * @return pointer to new module on success, NULL on error.

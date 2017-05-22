@@ -29,6 +29,7 @@
 #include "snmp-mib/agent/snmp-stats-module.h"
 #include "snmp-mib/agent/snmpv2-module.h"
 #include "snmp-mib/agent/target-module.h"
+#include "snmp-mib/agent/usm-dh-module.h"
 #include "snmp-mib/agent/usm-stats-module.h"
 #include "snmp-mib/agent/usm-users-module.h"
 #include "snmp-mib/agent/ucd-version-module.h"
@@ -43,6 +44,7 @@ __attribute__((constructor)) static void load_plugin(void)
     add_module(init_mpd_stats_module, "snmpMPDMIB");
     add_module(init_usm_stats_module, "usmStats");
     add_module(init_usm_users_module, "usmUser");
+    add_module(init_usm_dh_module, "usmDH");
     add_module(init_snmpv2_set_module, "snmpSet");
     add_module(init_snmp_stats_module, "snmpGroup");
     add_module(init_notification_module, "snmpNotification");
