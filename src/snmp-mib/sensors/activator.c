@@ -24,7 +24,8 @@
 #include "snmp-agent/mib-tree.h"
 #include "snmp-mib/sensors/entity-sensors-module.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     add_module(init_entity_sensors_module, "entity sensors");
 }

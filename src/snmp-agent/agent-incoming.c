@@ -365,9 +365,9 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
     /* accept all context names, since not all clients
      * allow this parameter to be configured. */
 
-    increment_incoming_error_counter(scoped_pdu);
     switch (scoped_pdu->type) {
         case GET: {
+            increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
                 return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
                         pdu, scoped_pdu, output_buf);
@@ -378,6 +378,7 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         case GET_NEXT: {
+            increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
                 return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
                         pdu, scoped_pdu, output_buf);
@@ -399,6 +400,7 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         case SET: {
+            increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
                 return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
                         pdu, scoped_pdu, output_buf);
@@ -408,6 +410,7 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         default: {
+            increment_incoming_error_counter(scoped_pdu);
             return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
                     scoped_pdu, output_buf);
         }
@@ -469,7 +472,7 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
                 get_statistics()->snmp_in_bad_community_uses++;
                 get_statistics()->snmp_out_get_responses++;
                 release_bindings(&response_scoped_pdu);
-                return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                return generate_error_response(user, RESPONSE, NO_ACCESS,
                         i + 1, pdu, scoped_pdu, output_buf);
             }
 
@@ -686,7 +689,7 @@ static int generate_security_error_response(SnmpUserSlot user, SnmpPDU *pdu,
 
         default: {
             return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
-                    NULL, output_buf);
+                NULL, output_buf);
         }
     }
 
@@ -727,6 +730,7 @@ static int generate_error_response(SnmpUserSlot user, SnmpPduType type,
 
     int max_pdu_size = min(pdu->max_size, MAX_PDU_SIZE);
     SnmpScopedPDU empty_scoped_pdu;
+    empty_scoped_pdu.request_id = 0;
 
     pdu->scoped_pdu.decrypted_pdu =
             scoped_pdu == NULL ? &empty_scoped_pdu : scoped_pdu;

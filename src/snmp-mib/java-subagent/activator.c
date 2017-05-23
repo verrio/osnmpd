@@ -24,7 +24,8 @@
 #include "snmp-agent/mib-tree.h"
 #include "snmp-mib/java-subagent/java-subagent.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     add_module(init_java_subagent_module, "java-sub-agent");
 

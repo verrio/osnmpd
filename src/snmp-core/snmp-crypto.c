@@ -100,8 +100,8 @@ static int generate_tag(SnmpPDU *pdu_header, const uint8_t *scoped_pdu,
         size_t scoped_pdu_len, const SnmpUSMContext *context)
 {
     /* generate header with empty tag */
-    memset(pdu_header->security_parameters.authentication_parameters, 0, HMAC_TAG_LEN);
-    pdu_header->security_parameters.authentication_parameters_len = HMAC_TAG_LEN;
+    memset(pdu_header->security_parameters.authentication_parameters, 0, USM_HMAC_TRUNC_LEN);
+    pdu_header->security_parameters.authentication_parameters_len = USM_HMAC_TRUNC_LEN;
 
     uint8_t header[MAX_HEADER_LEN];
     buf_t header_buf;
@@ -113,7 +113,7 @@ static int generate_tag(SnmpPDU *pdu_header, const uint8_t *scoped_pdu,
     unsigned int result_len = MAX_AUTHENTICATION_PARAMETERS;
     HMAC_CTX ctx;
     HMAC_CTX_init(&ctx);
-    HMAC_Init_ex(&ctx, context->auth_key, context->auth_key_len, EVP_sha1(), NULL);
+    HMAC_Init_ex(&ctx, context->auth_key, context->auth_key_len, USM_HMAC_ALGO(), NULL);
     HMAC_Update(&ctx, &header[header_buf.pos], header_buf.size - header_buf.pos);
     HMAC_Update(&ctx, scoped_pdu, scoped_pdu_len);
     HMAC_Final(&ctx, pdu_header->security_parameters.authentication_parameters, &result_len);
@@ -242,35 +242,35 @@ static int encrypt_scoped_pdu(SnmpPDU *pdu, buf_t *dst, const SnmpUSMContext *co
  */
 static int derive_key(const char *password, uint8_t *dst, size_t *dst_len)
 {
-    SHA_CTX context;
-    if (!SHA1_Init(&context)) {
+    USM_HASH_CTX context;
+    if (!USM_HASH_INIT(&context)) {
         return -1;
     }
 
     int index = 0;
     int count = 0;
     size_t passwd_len = strlen(password);
-    uint8_t buf[HMAC_BLOCK_SIZE];
+    uint8_t buf[USM_HMAC_BLOCK_SIZE];
 
     /* process till 1Mb exceeded */
     while (count < 1048576) {
         /* expand password to fill the buffer */
-        for (int i = 0; i < HMAC_BLOCK_SIZE; i++) {
+        for (int i = 0; i < USM_HMAC_BLOCK_SIZE; i++) {
             buf[i] = password[index++ % passwd_len];
         }
-        if (!SHA1_Update(&context, buf, HMAC_BLOCK_SIZE)) {
+        if (!USM_HASH_UPDATE(&context, buf, USM_HMAC_BLOCK_SIZE)) {
             return -1;
         }
-        count += HMAC_BLOCK_SIZE;
+        count += USM_HMAC_BLOCK_SIZE;
     }
 
-    if (!SHA1_Final(dst, &context)) {
+    if (!USM_HASH_FINAL(dst, &context)) {
         return -1;
     }
-    *dst_len = SHA_DIGEST_LENGTH;
+    *dst_len = USM_HASH_LEN;
 
-    char hex_dump[3 + (SHA_DIGEST_LENGTH << 1)];
-    if (to_hex(dst, SHA_DIGEST_LENGTH, hex_dump, sizeof(hex_dump)) > 0) {
+    char hex_dump[3 + (USM_HASH_LEN << 1)];
+    if (to_hex(dst, USM_HASH_LEN, hex_dump, sizeof(hex_dump)) > 0) {
         syslog(LOG_DEBUG, "derived master key %s", hex_dump);
     }
     return 0;
@@ -282,21 +282,21 @@ static int derive_key(const char *password, uint8_t *dst, size_t *dst_len)
 static int diversify_key(const uint8_t *src, const size_t src_len, uint8_t *dst,
         const uint8_t *engine_id, const size_t engine_id_len)
 {
-    SHA_CTX c;
-    if (!SHA1_Init(&c)) {
+	USM_HASH_CTX c;
+    if (!USM_HASH_INIT(&c)) {
         return -1;
-    } else if (!SHA1_Update(&c, src, src_len)) {
+    } else if (!USM_HASH_UPDATE(&c, src, src_len)) {
         return -1;
-    } else if (!SHA1_Update(&c, engine_id, engine_id_len)) {
+    } else if (!USM_HASH_UPDATE(&c, engine_id, engine_id_len)) {
         return -1;
-    } else if (!SHA1_Update(&c, src, src_len)) {
+    } else if (!USM_HASH_UPDATE(&c, src, src_len)) {
         return -1;
-    } else if (!SHA1_Final(dst, &c)) {
+    } else if (!USM_HASH_FINAL(dst, &c)) {
         return -1;
     }
 
-    char hex_dump[3 + (SHA_DIGEST_LENGTH << 1)];
-    if (to_hex(dst, SHA_DIGEST_LENGTH, hex_dump, sizeof(hex_dump)) > 0) {
+    char hex_dump[3 + (USM_HASH_KEY_LEN << 1)];
+    if (to_hex(dst, USM_HASH_KEY_LEN, hex_dump, sizeof(hex_dump)) > 0) {
         syslog(LOG_DEBUG, "derived diversified key %s", hex_dump);
     }
 
@@ -368,18 +368,24 @@ int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
         }
 
         /* validate tag */
-        if (pdu->security_parameters.authentication_parameters_len != HMAC_TAG_LEN) {
+        if (pdu->security_parameters.authentication_parameters_len != USM_HMAC_TRUNC_LEN) {
             return PROCESSING_SECURITY_AUTH_FAILED;
         }
 
-        uint8_t orig_tag[HMAC_TAG_LEN];
-        memcpy(orig_tag, pdu->security_parameters.authentication_parameters, HMAC_TAG_LEN);
+        uint8_t orig_tag[USM_HMAC_TRUNC_LEN];
+        memcpy(orig_tag, pdu->security_parameters.authentication_parameters, USM_HMAC_TRUNC_LEN);
         if (generate_tag(pdu, pdu->scoped_pdu.encrypted_pdu.data,
                 pdu->scoped_pdu.encrypted_pdu.len, context)) {
             return PROCESSING_SECURITY_AUTH_FAILED;
-        } else if (memcmp(orig_tag,
-                pdu->security_parameters.authentication_parameters, HMAC_TAG_LEN)) {
-            return PROCESSING_SECURITY_AUTH_FAILED;
+        } else {
+            uint32_t res = 0;
+            for (int i = 0; i < USM_HMAC_TRUNC_LEN; i++) {
+                res |= orig_tag[i] ^ pdu->security_parameters.authentication_parameters[i];
+
+            }
+            if ((1 & ((res - 1) >> 8)) - 1) {
+                return PROCESSING_SECURITY_AUTH_FAILED;
+            }
         }
     }
 

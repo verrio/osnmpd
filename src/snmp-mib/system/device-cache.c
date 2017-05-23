@@ -413,10 +413,13 @@ static void add_block_partition_entries(DeviceStorageEntry *storage, char *stora
         uint8_t *dev_ptr = (uint8_t *) dev;
         size_t dev_len = sizeof(dev);
         snprintf(path, sizeof(path), PATH_SYS_PARTITION_DEV, storage_path, d->d_name);
-        if (read_from_file(path, &dev_ptr, &dev_len))
+        if (read_from_file(path, &dev_ptr, &dev_len)) {
             dev[0] = '\0';
+        } else {
+        	dev[dev_len] = '\0';
+        }
         uint32_t major, minor;
-        if (sscanf(dev, "%"PRIu32":%"PRIu32"\n", &major, &minor) != 2)
+        if (sscanf(dev, "%"PRIu32":%"PRIu32, &major, &minor) != 2)
             continue;
 
         char label[64];

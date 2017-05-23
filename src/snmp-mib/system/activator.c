@@ -32,7 +32,8 @@
 #include "snmp-mib/system/hr-sw-installed-module.h"
 #include "snmp-mib/system/ucd-module.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     add_module(init_system_module, "system");
     add_module(init_hr_system_module, "host system");

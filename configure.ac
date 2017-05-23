@@ -84,7 +84,7 @@ AC_ARG_ENABLE(serial-number,
 	[enable_serial_number="no"])
 AC_MSG_RESULT(${enable_serial_number})
 if test "${enable_serial_number}" = "yes"; then
-	AC_DEFINE([SERIAL_NUMBER_SUPPORT], [], [Enable support for serial number])
+	AC_DEFINE([SERIAL_NUMBER_SUPPORT], [], [enable support for serial number])
 fi
 
 AC_MSG_CHECKING([whether smartcard support is to be compiled in])
@@ -94,7 +94,17 @@ AC_ARG_ENABLE(smartcard,
 	[enable_smartcard="no"])
 AC_MSG_RESULT($enable_smartcard)
 if test "${enable_smartcard}" = "yes"; then
-	AC_DEFINE([WITH_SMARTCARD_SUPPORT], [], [Enable smartcard engine support])
+	AC_DEFINE([WITH_SMARTCARD_SUPPORT], [], [enable smartcard engine support])
+fi
+
+AC_MSG_CHECKING([whether to use legacy crypto primitives (AES-128/SHA-1) for USM])
+AC_ARG_ENABLE(legacy-crypto,
+	[  --enable-legacy-crypto  Use AES-128/SHA-1 instead of AES-256/SHA-256 for USM security],
+	[enable_legacy_crypto=$enableval],
+	[enable_legacy_crypto="no"])
+AC_MSG_RESULT($enable_legacy_crypto)
+if test "${enable_legacy_crypto}" = "yes"; then
+	AC_DEFINE([USE_LEGACY_CRYPTO], [], [use legacy AES-128 and HMAC-SHA-1 instead of AES-256 and HMAC-SHA-256])
 fi
 
 AC_MSG_CHECKING(which admin user to be used)
@@ -111,15 +121,15 @@ AC_ARG_WITH(max-pdu-size,
 	MAX_PDU_SIZE=$withval,
 	MAX_PDU_SIZE=1280)
 AC_MSG_RESULT(${MAX_PDU_SIZE})
-AC_DEFINE_UNQUOTED(MAX_PDU_SIZE, ${MAX_PDU_SIZE}, [Max PDU size])
+AC_DEFINE_UNQUOTED(MAX_PDU_SIZE, ${MAX_PDU_SIZE}, [max PDU size])
 
 AC_MSG_CHECKING(which enterprise number to use)
 AC_ARG_WITH(enterprise-number,
-	[AS_HELP_STRING([--with-enterprise-number],[Alternative enterprise number])],
+	[AS_HELP_STRING([--with-enterprise-number], [alternative enterprise number])],
 	ENTERPRISE_NUMBER=$withval,
 	ENTERPRISE_NUMBER=4)
 AC_MSG_RESULT(${ENTERPRISE_NUMBER})
-AC_DEFINE_UNQUOTED(ENTERPRISE_NUMBER, ${ENTERPRISE_NUMBER}, [Enterprise number])
+AC_DEFINE_UNQUOTED(ENTERPRISE_NUMBER, ${ENTERPRISE_NUMBER}, [enterprise number])
 
 AC_MSG_CHECKING(which enterprise OID to use)
 AC_ARG_WITH(enterprise-oid,
@@ -127,21 +137,44 @@ AC_ARG_WITH(enterprise-oid,
 	ENTERPRISE_MIB=$withval,
 	ENTERPRISE_MIB="1.3.6.1.3.255")
 AC_MSG_RESULT(${ENTERPRISE_MIB})
-AC_DEFINE_UNQUOTED(ENTERPRISE_MIB, [`echo ${ENTERPRISE_MIB} | tr '.' ','`], [Enterprise MIB subtree])
+AC_DEFINE_UNQUOTED(ENTERPRISE_MIB, [`echo ${ENTERPRISE_MIB} | tr '.' ','`], [enterprise MIB subtree])
 
 AC_MSG_CHECKING([whether the agent MIB is to be compiled in])
 AC_ARG_WITH(mib-agent,
 	[  --with-mib-agent        Include agent MIB module],
 	enable_mib_agent=$withval,
-	enable_mib_agent=yes)
+	enable_mib_agent="yes")
 AC_MSG_RESULT(${enable_mib_agent})
 AM_CONDITIONAL([ENABLE_MIB_AGENT], [test "${enable_mib_agent}" = "yes"])
+
+if test "${enable_mib_agent}" = "yes"; then
+	if ! which openssl > /dev/null; then
+	    AC_MSG_ERROR([Missing OpenSSL binary.])
+	fi
+
+	if test -f ./dh.param; then
+		echo "Using existing Diffie-Hellman parameters"
+	else
+		echo "Generating new Diffie-Hellman parameters"
+		openssl dhparam -2 -out ./dh.param 2048
+		if test "$?" -ne "0"; then
+			AC_MSG_ERROR([Failed to generate new Diffie-Hellman parameters])
+		fi
+	fi
+	
+	prime_csv=$(openssl dhparam -in ./dh.param -C | tr -d ' \t\n' | sed -rn 's#^.+staticunsignedchardh2048_p\[\]=\{([^\}]+)\};.+#\1#p')
+	if test `echo ${prime_csv} | wc -c` -ne 1281; then
+		AC_MSG_ERROR([Failed to parse Diffie-Hellman parameters])
+	fi
+	AC_DEFINE([USM_DH_PARAM_GENERATOR], [2], [generator for Diffie-Hellman cyclic group])
+	AC_DEFINE_UNQUOTED([USM_DH_PARAM_PRIME], [${prime_csv}], [prime of Diffie-Hellman cyclic group])	
+fi
 
 AC_MSG_CHECKING([whether the system MIB is to be compiled in])
 AC_ARG_WITH(mib-system,
 	[  --with-mib-system       Include system MIB module],
 	enable_mib_system=$withval,
-	enable_mib_system=yes)
+	enable_mib_system="yes")
 AC_MSG_RESULT(${enable_mib_system})
 AM_CONDITIONAL([ENABLE_MIB_SYSTEM], [test "${enable_mib_system}" = "yes"])
 
@@ -149,7 +182,7 @@ AC_MSG_CHECKING([whether the power MIB is to be compiled in])
 AC_ARG_WITH(mib-power,
 	[  --with-mib-power        Include power MIB module],
 	enable_mib_power=$withval,
-	enable_mib_power=yes)
+	enable_mib_power="yes")
 AC_MSG_RESULT(${enable_mib_power})
 AM_CONDITIONAL([ENABLE_MIB_POWER], [test "${enable_mib_power}" = "yes"])
 
@@ -157,7 +190,7 @@ AC_MSG_CHECKING([whether the location MIB is to be compiled in])
 AC_ARG_WITH(mib-location,
 	[  --with-mib-location     Include location MIB module],
 	enable_mib_location=$withval,
-	enable_mib_location=yes)
+	enable_mib_location="yes")
 AC_MSG_RESULT(${enable_mib_location})
 AM_CONDITIONAL([ENABLE_MIB_LOCATION], [test "${enable_mib_location}" = "yes"])
 
@@ -165,7 +198,7 @@ AC_MSG_CHECKING([whether the IP MIB is to be compiled in])
 AC_ARG_WITH(mib-ip,
 	[  --with-mib-ip           Include IP MIB module],
 	enable_mib_ip=$withval,
-	enable_mib_ip=yes)
+	enable_mib_ip="yes")
 AC_MSG_RESULT(${enable_mib_ip})
 AM_CONDITIONAL([ENABLE_MIB_IP], [test "${enable_mib_ip}" = "yes"])
 
@@ -173,7 +206,7 @@ AC_MSG_CHECKING([whether the sensors MIB is to be compiled in])
 AC_ARG_WITH(mib-sensors,
 	[  --with-mib-sensors      Include sensors MIB module],
 	enable_mib_sensors=$withval,
-	enable_mib_sensors=yes)
+	enable_mib_sensors="yes")
 AC_MSG_RESULT(${enable_mib_sensors})
 AM_CONDITIONAL([ENABLE_MIB_SENSORS], [test "${enable_mib_sensors}" = "yes"])
 
@@ -229,8 +262,6 @@ AC_CONFIG_FILES([
 	conf/Makefile
 	doc/Makefile
 	src/Makefile
-	src/snmp-core/Makefile
-	src/snmp-agent/Makefile
 	src/snmp-mib/Makefile
 	src/snmp-mib/agent/Makefile
 	src/snmp-mib/system/Makefile
@@ -263,6 +294,7 @@ cat << EOF
   max PDU size .................... : ${MAX_PDU_SIZE}
   smartcard support ............... : ${enable_smartcard}
   serial number support ........... : ${enable_serial_number}
+  use legacy crypto ............... : ${enable_legacy_crypto}
   
   include SNMP agent module ....... : ${enable_mib_agent}
   include system module ........... : ${enable_mib_system}

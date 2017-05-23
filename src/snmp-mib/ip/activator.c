@@ -31,7 +31,8 @@
 #include "snmp-mib/ip/tcp-module.h"
 #include "snmp-mib/ip/udp-module.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     init_ip_statistics();
     add_module(init_ip_module, "ip");

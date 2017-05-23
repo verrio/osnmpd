@@ -38,7 +38,8 @@
 #include "snmp-mib/agent/vacm-security-group-module.h"
 #include "snmp-mib/agent/vacm-views-module.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     add_module(init_framework_module, "snmpFrameworkMIB");
     add_module(init_mpd_stats_module, "snmpMPDMIB");

@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "snmp-agent/agent-config.h"
 #include "snmp-agent/agent-cache.h"
 #include "snmp-agent/mib-tree.h"
@@ -37,10 +38,11 @@
 #define SNMP_OID_USM_USERS_MIB   SNMP_OID_USM_MIB,1,2
 
 /* privacy and authentication protocol identifiers */
-#define USM_AES_CFB_128_PROTOCOL    SNMP_OID_SNMPMODULES,10,1,2,4
-#define USM_NO_PRIV_PROTOCOL        SNMP_OID_SNMPMODULES,10,1,2,1
-#define USM_HMAC_SHA_1_96_PROTOCOL  SNMP_OID_SNMPMODULES,10,1,1,3
-#define USM_NO_AUTH_PROTOCOL        SNMP_OID_SNMPMODULES,2,1,1,1
+#define USM_AES_CFB_128_PROTOCOL      SNMP_OID_SNMPMODULES,10,1,2,4
+#define USM_NO_PRIV_PROTOCOL          SNMP_OID_SNMPMODULES,10,1,2,1
+#define USM_HMAC_96_SHA_1_PROTOCOL    SNMP_OID_SNMPMODULES,10,1,1,3
+#define USM_HMAC_192_SHA256_PROTOCOL  SNMP_OID_SNMPMODULES,10,1,1,5
+#define USM_NO_AUTH_PROTOCOL          SNMP_OID_SNMPMODULES,2,1,1,1
 
 enum USMUsersMIBObjects {
     USM_USER_SPIN_LOCK = 1,
@@ -68,7 +70,7 @@ static const char *user_names[] = { "ADMIN", "PUBLIC", "READ_ONLY", "READ_WRITE"
 static const SnmpUserSlot user_slots[] = { USER_ADMIN, USER_PUBLIC,
         USER_READ_ONLY, USER_READ_WRITE };
 
-static int get_user_row(SubOID *row, size_t row_len, int next_row)
+int get_user_row(SubOID *row, size_t row_len, int next_row)
 {
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
@@ -95,13 +97,22 @@ static int get_user_row(SubOID *row, size_t row_len, int next_row)
             row_len - engine_id_len - 1, next_row);
 }
 
-static UserConfiguration *get_row_entry(int row)
+UserConfiguration *get_row_entry(int row)
 {
     if (row == -1) {
         return NULL;
     } else {
         return get_user_configuration(user_slots[row]);
     }
+}
+
+uint8_t *get_row_user_name(int row)
+{
+	if (row == -1) {
+		return NULL;
+	} else {
+		return (uint8_t *) user_names[row];
+	}
 }
 
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
@@ -154,7 +165,11 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
 
         case USM_USER_AUTH_PROTOCOL: {
             if (entry->security_level > NO_AUTH_NO_PRIV) {
-                SET_OID_BIND(binding, USM_HMAC_SHA_1_96_PROTOCOL);
+#ifdef USE_LEGACY_CRYPTO
+            SET_OID_BIND(binding, USM_HMAC_96_SHA_1_PROTOCOL);
+#else
+            SET_OID_BIND(binding, USM_HMAC_192_SHA256_PROTOCOL);
+#endif
             } else {
                 SET_OID_BIND(binding, USM_NO_AUTH_PROTOCOL);
             }

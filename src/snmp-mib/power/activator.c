@@ -25,7 +25,8 @@
 #include "snmp-mib/power/battery-module.h"
 #include "snmp-mib/power/ups-module.h"
 
-__attribute__((constructor)) static void load_plugin(void)
+__attribute__((constructor))
+static void load_plugin(void)
 {
     add_module(init_battery_module, "battery");
 //    add_module(init_ups_ident_module, "UPS ident");

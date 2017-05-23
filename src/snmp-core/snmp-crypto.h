@@ -34,11 +34,30 @@
 
 #define SNMP_SECURITY_MODEL           0x03
 
-#define AES_KEY_LEN                   0x10
 #define AES_IV_LEN                    0x10
-#define HMAC_BLOCK_SIZE               0x40
-#define HMAC_KEY_LEN                  SHA_DIGEST_LENGTH
-#define HMAC_TAG_LEN                  0x0C
+#ifdef USE_LEGACY_CRYPTO
+#define AES_KEY_LEN                   0x10
+#define USM_HASH_CTX                  SHA_CTX
+#define USM_HASH_INIT                 SHA1_Init
+#define USM_HASH_UPDATE               SHA1_Update
+#define USM_HASH_FINAL                SHA1_Final
+#define USM_HASH_KEY_LEN              SHA_DIGEST_LENGTH
+#define USM_HASH_LEN                  SHA_DIGEST_LENGTH
+#define USM_HMAC_TRUNC_LEN            0x0C
+#define USM_HMAC_ALGO                 EVP_sha1
+#define USM_HMAC_BLOCK_SIZE           0x40
+#else
+#define AES_KEY_LEN                   0x20
+#define USM_HASH_CTX                  SHA256_CTX
+#define USM_HASH_INIT                 SHA256_Init
+#define USM_HASH_UPDATE               SHA256_Update
+#define USM_HASH_FINAL                SHA256_Final
+#define USM_HASH_KEY_LEN              SHA256_DIGEST_LENGTH
+#define USM_HASH_LEN                  SHA256_DIGEST_LENGTH
+#define USM_HMAC_TRUNC_LEN            0x18
+#define USM_HMAC_ALGO                 EVP_sha256
+#define USM_HMAC_BLOCK_SIZE           0x100
+#endif
 
 #define PROCESSING_NO_ERROR                  0
 #define PROCESSING_PARSE_ERROR              -1
@@ -75,9 +94,9 @@ typedef struct {
     size_t user_name_len;
 
     /* USM keys */
-    uint8_t auth_key[HMAC_KEY_LEN];
+    uint8_t auth_key[USM_HASH_KEY_LEN];
     size_t auth_key_len;
-    uint8_t priv_key[HMAC_KEY_LEN];
+    uint8_t priv_key[USM_HASH_KEY_LEN];
     size_t priv_key_len;
 
     /* engine parameters */
