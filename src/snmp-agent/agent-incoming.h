@@ -24,6 +24,8 @@
 #ifndef SRC_SNMP_AGENT_AGENT_INCOMING_H_
 #define SRC_SNMP_AGENT_AGENT_INCOMING_H_
 
+#include <poll.h>
+
 /**
  * init_incoming_handler - initialize the handler for incoming user requests.
  *
@@ -44,5 +46,11 @@ int finish_incoming_handler(void);
  * handle_request - handle an incoming SNMP request.
  */
 void handle_request(void);
+
+/**
+ * update_incoming_keyset - invalidate the USM keysets currently in use.
+ */
+__attribute__((visibility("default")))
+void update_incoming_keyset(void);
 
 #endif /* SRC_SNMP_AGENT_AGENT_INCOMING_H_ */

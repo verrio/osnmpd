@@ -30,6 +30,7 @@
 #include "snmp-mib/ip/icmp-module.h"
 #include "snmp-mib/ip/tcp-module.h"
 #include "snmp-mib/ip/udp-module.h"
+#include "snmp-mib/ip/sctp-module.h"
 
 __attribute__((constructor))
 static void load_plugin(void)
@@ -39,6 +40,16 @@ static void load_plugin(void)
     add_module(init_icmp_module, "icmp");
     add_module(init_tcp_module, "tcp");
     add_module(init_udp_module, "udp");
+    add_module(init_sctp_stats_module, "sctp statistics");
+    add_module(init_sctp_params_module, "sctp parameters");
+    add_module(init_sctp_assoc_module, "sctp associations");
+    add_module(init_sctp_assoc_local_module, "sctp local assoc");
+    add_module(init_sctp_assoc_remote_module, "sctp remote assoc");
+    add_module(init_sctp_local_port_module, "sctp local port");
+    add_module(init_sctp_remote_port_module, "sctp remote port");
+    add_module(init_sctp_hostname_module, "sctp hostname");
+    add_module(init_sctp_primary_ip_module, "sctp primary ip");
+    add_module(init_sctp_remote_ip_module, "sctp remote ip");
     add_module(init_iface_module, "iface");
     add_module(init_ifacex_module, "ifaceX");
     add_module(init_inverted_iface_module, "inverted stack");

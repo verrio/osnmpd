@@ -70,6 +70,8 @@
 #define KEY_USER_NAME "name"
 #define KEY_USER_AUTH_PASSWORD "auth-password"
 #define KEY_USER_PRIV_PASSWORD "priv-password"
+#define KEY_USER_AUTH_KEY "auth-key"
+#define KEY_USER_PRIV_KEY "priv-key"
 #define KEY_USER_SECURITY_MODEL "security-model"
 #define KEY_USER_SECURITY_LEVEL "security-level"
 
@@ -196,18 +198,18 @@ static int load_passwords(void)
         return -1;
     }
 
-    user_configuration[USER_ADMIN].priv_password =
-    strndup(buffer, USER_PASSWORD_MAX_LEN);
-    user_configuration[USER_ADMIN].auth_password =
-    strndup(&buffer[USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
-    user_configuration[USER_READ_WRITE].priv_password =
-    strndup(&buffer[2 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
-    user_configuration[USER_READ_WRITE].auth_password =
-    strndup(&buffer[3 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
-    user_configuration[USER_READ_ONLY].priv_password =
-    strndup(&buffer[4 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
-    user_configuration[USER_READ_ONLY].auth_password =
-    strndup(&buffer[5 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_ADMIN].priv_secret.secret.password =
+            strndup(buffer, USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_ADMIN].auth_secret.secret.password =
+            strndup(&buffer[USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_READ_WRITE].priv_secret.secret.password =
+            strndup(&buffer[2 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_READ_WRITE].auth_secret.secret.password =
+            strndup(&buffer[3 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_READ_ONLY].priv_secret.secret.password =
+            strndup(&buffer[4 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
+    user_configuration[USER_READ_ONLY].auth_secret.secret.password =
+            strndup(&buffer[5 * USER_PASSWORD_MAX_LEN], USER_PASSWORD_MAX_LEN);
 #endif
 
     return 0;
@@ -305,8 +307,10 @@ static void set_default_user_config(SnmpUserSlot user)
     user_configuration[user].user = user;
     user_configuration[user].enabled = 0;
     user_configuration[user].name = (char *) DEFAULT_USER_NAMES[user];
-    user_configuration[user].auth_password = NULL;
-    user_configuration[user].priv_password = NULL;
+    user_configuration[user].priv_secret.is_key = 0;
+    user_configuration[user].priv_secret.secret.password = NULL;
+    user_configuration[user].auth_secret.is_key = 0;
+    user_configuration[user].auth_secret.secret.password = NULL;
     user_configuration[user].security_level =
         user == USER_PUBLIC ? NO_AUTH_NO_PRIV : AUTH_PRIV;
     user_configuration[user].security_model = USM;
@@ -441,25 +445,25 @@ int load_configuration(void)
 
     /* fetch trap configuration */
     config_lookup_bool(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_ENABLED, &trap_configuration.enabled);
+        KEY_SEPARATOR KEY_TRAP_ENABLED, &trap_configuration.enabled);
     config_lookup_bool(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_CONFIRMED, &trap_configuration.confirmed);
+        KEY_SEPARATOR KEY_TRAP_CONFIRMED, &trap_configuration.confirmed);
     if (config_lookup_int(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_PORT, &port_override) == CONFIG_TRUE) {
+        KEY_SEPARATOR KEY_TRAP_PORT, &port_override) == CONFIG_TRUE) {
         trap_configuration.port = (uint16_t) port_override;
     }
     config_lookup_int(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_RETRIES, (int *) &trap_configuration.retries);
+        KEY_SEPARATOR KEY_TRAP_RETRIES, (int *) &trap_configuration.retries);
     config_lookup_int(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_TIMEOUT, (int *) &trap_configuration.timeout);
+        KEY_SEPARATOR KEY_TRAP_TIMEOUT, (int *) &trap_configuration.timeout);
     if (config_lookup_string(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_DESTINATION, &str) == CONFIG_TRUE) {
+        KEY_SEPARATOR KEY_TRAP_DESTINATION, &str) == CONFIG_TRUE) {
         trap_configuration.destination = strdup(str);
     } else {
         trap_configuration.destination = NULL;
     }
     if (config_lookup_string(&agent_cfg, KEY_AGENT KEY_SEPARATOR KEY_TRAP
-    KEY_SEPARATOR KEY_TRAP_USER, &str) == CONFIG_TRUE) {
+        KEY_SEPARATOR KEY_TRAP_USER, &str) == CONFIG_TRUE) {
         trap_configuration.user = get_user_from_string(str);
         if (trap_configuration.user == -1) {
             syslog(LOG_ERR, "no user for profile %s", str);
@@ -493,11 +497,11 @@ int load_configuration(void)
 
             /* enable/disable user */
             config_setting_lookup_bool(user,
-            KEY_USER_ENABLED, &user_configuration[slot].enabled);
+                KEY_USER_ENABLED, &user_configuration[slot].enabled);
 
             /* override user name */
             if (config_setting_lookup_string(user,
-            KEY_USER_NAME, &str) == CONFIG_TRUE) {
+                    KEY_USER_NAME, &str) == CONFIG_TRUE) {
                 if (strlen(str) > USER_NAME_MAX_LEN) {
                     syslog(LOG_ERR, "user name too long: %s", str);
                     ret_val = -1;
@@ -513,29 +517,55 @@ int load_configuration(void)
             /* set user password override */
             user_password_overruled[slot] = 0;
             if (config_setting_lookup_string(user,
-            KEY_USER_AUTH_PASSWORD, &str) == CONFIG_TRUE) {
+                    KEY_USER_AUTH_PASSWORD, &str) == CONFIG_TRUE) {
                 if (strlen(str) > USER_PASSWORD_MAX_LEN) {
                     syslog(LOG_ERR, "user authentication password too long : %s", str);
                     ret_val = -1;
                 } else {
-                    user_configuration[slot].auth_password = strdup(str);
+                    user_configuration[slot].auth_secret.secret.password = strdup(str);
+                    user_configuration[slot].auth_secret.secret_len = strlen(str);
                     user_password_overruled[slot] = 1;
+                }
+            } else if (config_setting_lookup_string(user,
+                    KEY_USER_AUTH_KEY, &str) == CONFIG_TRUE) {
+                uint8_t key[USER_PASSWORD_MAX_LEN];
+                int size = from_hex(str, key, sizeof(key));
+                if (size <= 0) {
+                    user_configuration[slot].auth_secret.secret.key = memdup(key, size);
+                    user_configuration[slot].auth_secret.secret_len = size;
+                    user_password_overruled[slot] = 1;
+                } else {
+                    syslog(LOG_ERR, "user authentication key too long");
+                    ret_val = -1;
                 }
             }
             if (config_setting_lookup_string(user,
-            KEY_USER_PRIV_PASSWORD, &str) == CONFIG_TRUE) {
+                    KEY_USER_PRIV_PASSWORD, &str) == CONFIG_TRUE) {
                 if (strlen(str) > USER_PASSWORD_MAX_LEN) {
                     syslog(LOG_ERR, "user privacy password too long : %s", str);
                     ret_val = -1;
                 } else {
-                    user_configuration[slot].priv_password = strdup(str);
+                    user_configuration[slot].priv_secret.secret.password = strdup(str);
+                    user_configuration[slot].priv_secret.secret_len = strlen(str);
                     user_password_overruled[slot] = 1;
+                }
+            } else if (config_setting_lookup_string(user,
+                    KEY_USER_PRIV_KEY, &str) == CONFIG_TRUE) {
+                uint8_t key[USER_PASSWORD_MAX_LEN];
+                int size = from_hex(str, key, sizeof(key));
+                if (size <= 0) {
+                    user_configuration[slot].priv_secret.secret.key = memdup(key, size);
+                    user_configuration[slot].priv_secret.secret_len = size;
+                    user_password_overruled[slot] = 1;
+                } else {
+                    syslog(LOG_ERR, "user privacy key too long");
+                    ret_val = -1;
                 }
             }
 
             /* set user security model */
             if (config_setting_lookup_string(user,
-            KEY_USER_SECURITY_MODEL, &str) == CONFIG_TRUE) {
+                KEY_USER_SECURITY_MODEL, &str) == CONFIG_TRUE) {
                 user_configuration[slot].security_model =
                         get_security_model_from_string(str);
                 if (user_configuration[slot].security_model == -1) {
@@ -547,7 +577,7 @@ int load_configuration(void)
 
             /* set user security level */
             if (config_setting_lookup_string(user,
-            KEY_USER_SECURITY_LEVEL, &str) == CONFIG_TRUE) {
+                KEY_USER_SECURITY_LEVEL, &str) == CONFIG_TRUE) {
                 user_configuration[slot].security_level =
                         get_security_level_from_string(str);
                 if (user_configuration[slot].security_level == -1) {
@@ -559,7 +589,8 @@ int load_configuration(void)
         }
     }
 
-    finish: config_destroy(&agent_cfg);
+finish:
+    config_destroy(&agent_cfg);
     return ret_val;
 }
 
@@ -592,9 +623,9 @@ int write_configuration(void)
     config_setting_set_int(setting, 0x00ffff & port);
 
     /* set engine ID */
-    char engine_buf[(ENGINE_ID_MAX_LEN << 1) + 3];
+    char engine_buf[HEX_LEN(ENGINE_ID_MAX_LEN)];
     if (to_hex(engine_id, engine_id_len, engine_buf,
-            (ENGINE_ID_MAX_LEN << 1) + 3) != -1) {
+            HEX_LEN(ENGINE_ID_MAX_LEN)) != -1) {
         config_setting_remove(agent, KEY_ENGINE_ID);
         setting = config_setting_add(agent, KEY_ENGINE_ID, CONFIG_TYPE_STRING);
         config_setting_set_string(setting, engine_buf);
@@ -678,18 +709,50 @@ int write_configuration(void)
         }
 
         if (user_password_overruled[i]) {
-            /* set authentication password */
-            if (user_configuration[i].auth_password != NULL) {
-                setting = config_setting_add(user, KEY_USER_AUTH_PASSWORD,
-                    CONFIG_TYPE_STRING);
-                config_setting_set_string(setting, user_configuration[i].auth_password);
+            /* set authentication secret */
+            if (user_configuration[i].auth_secret.is_key) {
+                if (user_configuration[i].auth_secret.secret.key != NULL) {
+                    char key_hex[HEX_LEN(USER_PASSWORD_MAX_LEN)];
+                    if (to_hex(user_configuration[i].auth_secret.secret.key,
+                            user_configuration[i].auth_secret.secret_len,
+                            key_hex, sizeof(key_hex)) != -1) {
+                        setting = config_setting_add(user, KEY_USER_AUTH_KEY,
+                            CONFIG_TYPE_STRING);
+                        config_setting_set_string(setting, key_hex);
+                    } else {
+                        syslog(LOG_ERR, "failed to update authentication secret");
+                    }
+                }
+            } else {
+                if (user_configuration[i].auth_secret.secret.password != NULL) {
+                    setting = config_setting_add(user, KEY_USER_AUTH_PASSWORD,
+                        CONFIG_TYPE_STRING);
+                    config_setting_set_string(setting,
+                        user_configuration[i].auth_secret.secret.password);
+                }
             }
 
-            /* set privacy password */
-            if (user_configuration[i].priv_password != NULL) {
-                setting = config_setting_add(user, KEY_USER_PRIV_PASSWORD,
-                    CONFIG_TYPE_STRING);
-                config_setting_set_string(setting, user_configuration[i].priv_password);
+            /* set privacy secret */
+            if (user_configuration[i].priv_secret.is_key) {
+                if (user_configuration[i].priv_secret.secret.key != NULL) {
+                    char key_hex[HEX_LEN(USER_PASSWORD_MAX_LEN)];
+                    if (to_hex(user_configuration[i].priv_secret.secret.key,
+                            user_configuration[i].priv_secret.secret_len,
+                            key_hex, sizeof(key_hex)) != -1) {
+                        setting = config_setting_add(user, KEY_USER_PRIV_KEY,
+                            CONFIG_TYPE_STRING);
+                        config_setting_set_string(setting, key_hex);
+                    } else {
+                        syslog(LOG_ERR, "failed to update privacy secret");
+                    }
+                }
+            } else {
+                if (user_configuration[i].priv_secret.secret.password != NULL) {
+                    setting = config_setting_add(user, KEY_USER_PRIV_PASSWORD,
+                        CONFIG_TYPE_STRING);
+                    config_setting_set_string(setting,
+                        user_configuration[i].priv_secret.secret.password);
+                }
             }
         }
     }
@@ -843,20 +906,27 @@ int set_user_configuration(UserConfiguration *configuration)
 
 int set_user_auth_password(SnmpUserSlot user, char *password)
 {
-    if (user == USER_PUBLIC|| password == NULL
+    if (user == USER_PUBLIC || password == NULL
         || strlen(password) > USER_PASSWORD_MAX_LEN
         || strlen(password) < USER_PASSWORD_MIN_LEN) {
         return -1;
     }
 
-    if (user_configuration[user].auth_password != NULL) {
-        free(user_configuration[user].auth_password);
+    char *dup = strdup(password);
+    if (dup == NULL)
+        return -1;
+
+    UserConfiguration *conf = &user_configuration[user];
+
+    if (conf->auth_secret.is_key && conf->auth_secret.secret.key != NULL) {
+        free(conf->auth_secret.secret.key);
+    } else if (!conf->auth_secret.is_key && conf->auth_secret.secret.password != NULL) {
+        free(conf->auth_secret.secret.password);
     }
 
-    user_configuration[user].auth_password = strdup(password);
-    if (user_configuration[user].auth_password == NULL) {
-        return -1;
-    }
+    conf->auth_secret.is_key = 0;
+    conf->auth_secret.secret.password = password;
+    conf->auth_secret.secret_len = strlen(password);
 
 #ifdef WITH_SMARTCARD_SUPPORT
     ENGINE *e = get_smartcard_engine();
@@ -883,20 +953,27 @@ int set_user_auth_password(SnmpUserSlot user, char *password)
 
 int set_user_priv_password(SnmpUserSlot user, char *password)
 {
-    if (user == USER_PUBLIC|| password == NULL
+    if (user == USER_PUBLIC || password == NULL
         || strlen(password) > USER_PASSWORD_MAX_LEN
         || strlen(password) < USER_PASSWORD_MIN_LEN) {
         return -1;
     }
 
-    if (user_configuration[user].priv_password != NULL) {
-        free(user_configuration[user].priv_password);
+    char *dup = strdup(password);
+    if (dup == NULL)
+        return -1;
+
+    UserConfiguration *conf = &user_configuration[user];
+
+    if (conf->priv_secret.is_key && conf->priv_secret.secret.key != NULL) {
+        free(conf->priv_secret.secret.key);
+    } else if (!conf->priv_secret.is_key && conf->priv_secret.secret.password != NULL) {
+        free(conf->priv_secret.secret.password);
     }
 
-    user_configuration[user].priv_password = strdup(password);
-    if (user_configuration[user].priv_password == NULL) {
-        return -1;
-    }
+    conf->priv_secret.is_key = 0;
+    conf->priv_secret.secret.password = dup;
+    conf->priv_secret.secret_len = strlen(password);
 
 #ifdef WITH_SMARTCARD_SUPPORT
     ENGINE *e = get_smartcard_engine();
@@ -917,6 +994,56 @@ int set_user_priv_password(SnmpUserSlot user, char *password)
         return -1;
     }
 #endif
+
+    return 0;
+}
+
+int set_user_priv_key(SnmpUserSlot user, const uint8_t *key, size_t key_len)
+{
+    if (user == USER_PUBLIC || key == NULL)
+        return -1;
+
+    uint8_t *dup = memdup(key, key_len);
+    if (dup == NULL)
+        return -1;
+
+    UserConfiguration *conf = &user_configuration[user];
+
+    if (conf->priv_secret.is_key && conf->priv_secret.secret.key != NULL) {
+        free(conf->priv_secret.secret.key);
+    } else if (!conf->priv_secret.is_key && conf->priv_secret.secret.password != NULL) {
+        free(conf->priv_secret.secret.password);
+    }
+
+    conf->priv_secret.is_key = 1;
+    conf->priv_secret.secret.key = dup;
+    conf->priv_secret.secret_len = key_len;
+    user_password_overruled[user] = 1;
+
+    return 0;
+}
+
+int set_user_auth_key(SnmpUserSlot user, const uint8_t *key, size_t key_len)
+{
+    if (user == USER_PUBLIC || key == NULL)
+        return -1;
+
+    uint8_t *dup = memdup(key, key_len);
+    if (dup == NULL)
+        return -1;
+
+    UserConfiguration *conf = &user_configuration[user];
+
+    if (conf->auth_secret.is_key && conf->auth_secret.secret.key != NULL) {
+        free(conf->auth_secret.secret.key);
+    } else if (!conf->auth_secret.is_key && conf->auth_secret.secret.password != NULL) {
+        free(conf->auth_secret.secret.password);
+    }
+
+    conf->auth_secret.is_key = 1;
+    conf->auth_secret.secret.key = dup;
+    conf->auth_secret.secret_len = key_len;
+    user_password_overruled[user] = 1;
 
     return 0;
 }

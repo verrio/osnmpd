@@ -54,7 +54,7 @@ AC_TYPE_SIZE_T
 
 AC_LIB_PREFIX
 LT_INIT
-AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
+AM_INIT_AUTOMAKE([-Wall foreign subdir-objects no-dependencies])
 
 AC_MSG_CHECKING([whether to build for Microsoft Windows target])
 AC_COMPILE_IFELSE(

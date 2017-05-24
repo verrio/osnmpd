@@ -96,8 +96,10 @@ typedef struct {
     /* USM keys */
     uint8_t auth_key[USM_HASH_KEY_LEN];
     size_t auth_key_len;
+    int auth_diversified;
     uint8_t priv_key[USM_HASH_KEY_LEN];
     size_t priv_key_len;
+    int priv_diversified;
 
     /* engine parameters */
     uint32_t (*get_engine_boots)(void);
@@ -105,9 +107,20 @@ typedef struct {
 
     /* anti-replay */
     uint32_t last_incoming_time;
-    uint32_t last_incoming_msg;
+    uint32_t last_incoming_msg_id;
+    uint8_t last_incoming_iv[AES_IV_LEN];
 
 } SnmpUSMContext;
+
+/** USM secret */
+typedef struct {
+    union {
+        char *password;
+        uint8_t *key;
+    } secret;
+    size_t secret_len;
+    int is_key;
+} SnmpUSMSecret;
 
 /**
  * @internal
@@ -138,14 +151,14 @@ ENGINE *get_smartcard_engine(void);
 /**
  * derive_usm_master_keys - Derive the master keyset for a given pair of passwords.
  *
- * @param priv_password IN - privacy password (null terminated)
- * @param priv_password IN - authentication password (null terminated)
+ * @param priv_secret IN - privacy password or key
+ * @param auth_secret IN - authentication password or key
  * @param context OUT - USM context.
  *
  * @return 0 on success, -1 on error.
  */
-int derive_usm_master_keys(const char *priv_password,
-        const char *auth_password, SnmpUSMContext *context);
+int derive_usm_master_keys(const SnmpUSMSecret *priv_secret,
+        const SnmpUSMSecret *auth_secret, SnmpUSMContext *context);
 
 /**
  * derive_usm_diversified_keys - Derive diversified (localized) keys

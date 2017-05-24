@@ -1,0 +1,90 @@
+--
+-- message format for IPC channels of the SNMP agent:
+-- trap request messages, control request messages,
+-- control response messages
+--
+
+SNMPAgentCommunication DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+EXPORTS ALL;
+
+AgentFlags ::= BIT STRING (SIZE (8))
+
+-- trap request dispatched to the agent's message queue
+AgentTrapRequest ::= SEQUENCE {
+    version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
+    flags AgentFlags DEFAULT '00'H, -- reserved for future usage
+    timeStamp INTEGER (0..18446744073709551615), -- milliseconds since epoch
+    trapCode1 INTEGER (0..65535) DEFAULT 0,  -- trap code 1
+    trapCode2 INTEGER (0..65535) DEFAULT 0, -- trap code 2
+    arguments SEQUENCE OF VarArguments -- optional OIDs
+}
+
+-- control socket request
+AgentCtlRequest ::= SEQUENCE {
+    version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
+    flags AgentFlags, -- reserved for future usage
+    requestId INTEGER (0..255), -- tracking ID
+    requestType ENUMERATED, -- enum with request command
+    arguments SEQUENCE OF VarArguments
+}
+
+-- control socket response
+AgentCtlResponse ::= SEQUENCE {
+    version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
+    flags AgentFlags, -- reserved for future usage
+    responseId INTEGER (0..255), -- echo'ed request ID
+    resultCode ResultCode, -- result of command execution
+    arguments SEQUENCE OF VarArguments
+}
+
+ResultCode ::= ENUMERATED {
+    success(0), -- request processed correctly
+    otherReason(1), -- failure which is not covered by any of the error codes below
+    parseError(2), -- given request could not be parsed
+    commandNotAvailable(3), -- the requested command is not available on this agent
+    argumentsMissing(4), -- request is missing one or more arguments
+    argumentsWrongLength(5), -- request has argument(s) of invalid length
+    argumentsWrongType(6), -- request has argument(s) of invalid type
+    argumentsInvalid(7), -- request has argument(s) which are invalid (context-specific)
+    dataConstraintViolation(8), -- executing the request would break
+                                -- one or more data constraints
+    notEnoughMemory(9), -- insufficient RAM available to handle this request
+    missingFile(10), -- one or more files on disk are missing which prevents
+                     -- the correct handling of this request
+    diskNotAvailable(11), -- disk (or database) is not available.
+    diskFull(12), -- disk (or database) is full.
+    diskCorrupt(13), -- disk (or database) is corrupt.
+    networkUnavailable(14), -- network access is not available.
+    requestCancelled(15), -- request was canceled while processing was ongoing.
+    previousRequestStillOngoing(16), -- previous request is still ongoing
+                                     -- (in case handling is done asynchronously)
+    missingSecret(17), -- request required security key(pair)
+                       -- or password which is not available
+    securityError(18), -- request execution met security related
+                       -- error (e.g. decryption failure)
+    temporarilyUnavailable(19), -- request could not be executed because
+                                -- one or more resources/constraints are
+				-- not validated right now
+    hardwareFault(20), -- unexpected hardware behavior was met while
+                       -- trying to execute the request
+    osFault(21), -- unexpected OS behavior was met while
+                 -- trying to execute the request
+    requestTimeout(22), -- agent process timed out while waiting
+                        -- on response from external process
+    notImplemented(23) -- request is applicable to this agent,
+                       -- but nevertheless not implemented
+}
+
+-- possible arguments included in a ctl message.
+VarArguments ::= CHOICE {
+    null NULL,
+    boolean BOOLEAN,
+    integer INTEGER,
+    float REAL,
+    octetString OCTET STRING,
+    sequence SEQUENCE OF VarArguments
+}
+
+END
+

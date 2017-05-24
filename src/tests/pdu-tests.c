@@ -25,8 +25,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <snmp-core/snmp-pdu.h>
-#include <snmp-core/snmp-crypto.h>
+
+#include "snmp-core/utils.h"
+#include "snmp-core/snmp-pdu.h"
+#include "snmp-core/snmp-crypto.h"
 
 static const uint8_t discovery_request[] = { 0x30, 0x41,
 		0x02, 0x01, 0x03, 0x30, 0x0f, 0x02, 0x02, 0x01, 0x56, 0x02, 0x03, 0x00, 0xff, 0xff, 0x04, 0x01, 0x04, 0x02, 0x01, 0x03,
@@ -112,7 +114,7 @@ static uint32_t get_engine_time()
 	return 944900;
 }
 
-static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offset, size_t len, int scoped_offset, uint8_t *name)
+static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offset, size_t len, int scoped_offset, char *name)
 {
 	asn1raw_t src;
 	src.value = (uint8_t *) ref_pdu + offset;
@@ -140,7 +142,9 @@ static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offs
 	}
 
 	pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
+#ifdef DEBUG
 	dump_snmp_pdu(&pdu, 1);
+#endif
 
 	uint8_t enc_buf[ref_pdu_len];
 	buf_t buf;
@@ -165,7 +169,7 @@ static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offs
 }
 
 static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offset, size_t len,
-		int scoped_offset, uint8_t *name, int time_sync, uint8_t *auth_pass, uint8_t *priv_pass,
+		int scoped_offset, char *name, int time_sync, char *auth_pass, char *priv_pass,
 		const uint8_t *engine_id, size_t engine_id_len, SnmpSecurityLevel level, int valid)
 {
 	SnmpUSMContext context;
@@ -174,7 +178,17 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 	context.user_name_len = sizeof("management");
 	context.get_engine_boots = get_engine_boots;
 	context.get_engine_time = get_engine_time;
-	if (derive_usm_master_keys(priv_pass, auth_pass, &context)
+
+	SnmpUSMSecret priv_secret;
+    priv_secret.is_key = 0;
+    priv_secret.secret.password = priv_pass;
+    priv_secret.secret_len = priv_pass == NULL ? 0 : strlen(priv_pass);
+    SnmpUSMSecret auth_secret;
+    auth_secret.is_key = 0;
+    auth_secret.secret.password = auth_pass;
+    auth_secret.secret_len = auth_pass == NULL ? 0 : strlen(auth_pass);
+
+	if (derive_usm_master_keys(&priv_secret, &auth_secret, &context)
 			|| derive_usm_diversified_keys(engine_id, engine_id_len, &context)) {
 		fprintf(stderr, "Failed to decode %s : initializing keyset failed.\n", name);
 		exit(1);
@@ -211,7 +225,9 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 	}
 
 	pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
+#ifdef DEBUG
 	dump_snmp_pdu(&pdu, 1);
+#endif
 
 	uint8_t enc_buf[ref_pdu_len];
 	buf_t buf;
@@ -245,10 +261,10 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 		}
 
 		if (pdu2.security_parameters.authoritative_engine_boots != get_engine_boots()) {
-			fprintf(stderr, "Encoded PDU has invalid engine boot counter\n", name, res5);
+			fprintf(stderr, "Encoded PDU has invalid engine boot counter\n");
 			exit(1);
 		} else if (pdu2.security_parameters.authoritative_engine_time != get_engine_time()) {
-			fprintf(stderr, "Encoded PDU has invalid engine timestamp\n", name, res5);
+			fprintf(stderr, "Encoded PDU has invalid engine timestamp\n");
 			exit(1);
 		}
 	} else {
@@ -266,7 +282,12 @@ void test_derive_session_key()
 	uint8_t master_expected[] = { 0x9f, 0xb5, 0xcc, 0x03, 0x81, 0x49, 0x7b, 0x37, 0x93, 0x52, 0x89, 0x39, 0xff, 0x78, 0x8d, 0x5d, 0x79, 0x14, 0x52, 0x11 };
 	uint8_t diversified_key[] = { 0x66, 0x95, 0xfe, 0xbc, 0x92, 0x88, 0xe3, 0x62, 0x82, 0x23, 0x5f, 0xc7, 0x15, 0x1f, 0x12, 0x84, 0x97, 0xb3, 0x8f, 0x3f };
 
-	int res1 = derive_usm_master_keys(NULL, "maplesyrup", &context);
+	SnmpUSMSecret secret;
+	secret.is_key = 0;
+	secret.secret.password = "maplesyrup";
+	secret.secret_len = strlen(secret.secret.password);
+
+	int res1 = derive_usm_master_keys(NULL, &secret, &context);
 	if (res1) {
 		fprintf(stderr, "Failed to derive master key : result code %i\n", res1);
 		exit(1);
@@ -285,7 +306,7 @@ void test_derive_session_key()
 	}
 }
 
-void main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	printf("Running SNMP PDU test\n");
 
@@ -307,4 +328,5 @@ void main(int argc, char **argv)
 	finish_crypto();
 
 	printf("Test finished\n");
+	return 0;
 }

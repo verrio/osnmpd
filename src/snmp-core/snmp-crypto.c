@@ -157,7 +157,11 @@ static int check_replay_counter(const SnmpPDU *pdu, SnmpUSMContext *context)
         return -1;
     } else if (pdu->security_parameters.authoritative_engine_time ==
         context->last_incoming_time &&
-        pdu->message_id == context->last_incoming_msg) {
+        pdu->message_id == context->last_incoming_msg_id &&
+        !memcmp(context->last_incoming_iv,
+            pdu->security_parameters.privacy_parameters,
+            min(pdu->security_parameters.privacy_parameters_len,
+                sizeof(context->last_incoming_iv)))) {
         return -1;
     }
 
@@ -269,7 +273,7 @@ static int derive_key(const char *password, uint8_t *dst, size_t *dst_len)
     }
     *dst_len = USM_HASH_LEN;
 
-    char hex_dump[3 + (USM_HASH_LEN << 1)];
+    char hex_dump[HEX_LEN(USM_HASH_LEN)];
     if (to_hex(dst, USM_HASH_LEN, hex_dump, sizeof(hex_dump)) > 0) {
         syslog(LOG_DEBUG, "derived master key %s", hex_dump);
     }
@@ -295,7 +299,7 @@ static int diversify_key(const uint8_t *src, const size_t src_len, uint8_t *dst,
         return -1;
     }
 
-    char hex_dump[3 + (USM_HASH_KEY_LEN << 1)];
+    char hex_dump[HEX_LEN(USM_HASH_KEY_LEN)];
     if (to_hex(dst, USM_HASH_KEY_LEN, hex_dump, sizeof(hex_dump)) > 0) {
         syslog(LOG_DEBUG, "derived diversified key %s", hex_dump);
     }
@@ -303,23 +307,39 @@ static int diversify_key(const uint8_t *src, const size_t src_len, uint8_t *dst,
     return 0;
 }
 
-int derive_usm_master_keys(const char *priv_password,
-        const char *auth_password, SnmpUSMContext *context)
+int derive_usm_master_keys(const SnmpUSMSecret *priv_secret,
+        const SnmpUSMSecret *auth_secret, SnmpUSMContext *context)
 {
-    if (priv_password != NULL) {
-        if (derive_key(priv_password, context->priv_key, &context->priv_key_len)) {
-            return -1;
+    if (priv_secret != NULL && priv_secret->secret.key != NULL) {
+        if (priv_secret->is_key) {
+            memcpy(context->priv_key, priv_secret->secret.key,
+                    min(AES_KEY_LEN, priv_secret->secret_len));
+            context->priv_diversified = 1;
+        } else {
+            if (derive_key(priv_secret->secret.password,
+                    context->priv_key, &context->priv_key_len))
+                return -1;
+            context->priv_diversified = 0;
         }
     } else {
         context->priv_key_len = 0;
+        context->priv_diversified = 0;
     }
 
-    if (auth_password != NULL) {
-        if (derive_key(auth_password, context->auth_key, &context->auth_key_len)) {
-            return -1;
+    if (auth_secret != NULL && auth_secret->secret.key != NULL) {
+        if (auth_secret->is_key) {
+            memcpy(context->auth_key, auth_secret->secret.key,
+                    min(USM_HASH_KEY_LEN, auth_secret->secret_len));
+            context->auth_diversified = 1;
+        } else {
+            if (derive_key(auth_secret->secret.password,
+                    context->auth_key, &context->auth_key_len))
+                return -1;
+            context->auth_diversified = 0;
         }
     } else {
         context->auth_key_len = 0;
+        context->auth_diversified = 0;
     }
 
     return 0;
@@ -328,16 +348,20 @@ int derive_usm_master_keys(const char *priv_password,
 int derive_usm_diversified_keys(const uint8_t *engine_id,
         const size_t engine_id_len, SnmpUSMContext *context)
 {
-    if (engine_id == NULL) {
+    if (!context->auth_diversified &&
+            !context->priv_diversified && engine_id == NULL) {
         return -1;
-    } else if (diversify_key(context->auth_key, context->auth_key_len,
+    } else if (!context->auth_diversified &&
+            diversify_key(context->auth_key, context->auth_key_len,
             context->auth_key, engine_id, engine_id_len)) {
         return -1;
-    } else if (diversify_key(context->priv_key, context->priv_key_len,
+    } else if (!context->priv_diversified &&
+            diversify_key(context->priv_key, context->priv_key_len,
             context->priv_key, engine_id, engine_id_len)) {
         return -1;
     }
     context->priv_key_len = AES_KEY_LEN;
+    context->auth_diversified = context->priv_diversified = 1;
 
     return 0;
 }
@@ -394,8 +418,10 @@ int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
         return PROCESSING_SECURITY_ENC_FAILED;
     }
 
-    context->last_incoming_msg = pdu->message_id;
+    context->last_incoming_msg_id = pdu->message_id;
     context->last_incoming_time = pdu->security_parameters.authoritative_engine_time;
+    memcpy(context->last_incoming_iv, pdu->security_parameters.privacy_parameters,
+        min(pdu->security_parameters.privacy_parameters_len, sizeof(context->last_incoming_iv)));
 
     return PROCESSING_NO_ERROR;
 }

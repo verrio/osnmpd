@@ -24,5 +24,98 @@
 #ifndef SRC_SNMP_MIB_IP_SCTP_H_
 #define SRC_SNMP_MIB_IP_SCTP_H_
 
+/* SCTP-MIB at 1.3.6.1.2.1.104 (RFC 3873) */
+#define SNMP_OID_SCTP           SNMP_OID_MIB2,104
+#define SNMP_OID_SCTP_OBJECTS   SNMP_OID_SCTP,1
+
+/**
+ * @internal
+ * init_sctp_stats_module - creates and initialises
+ * a new SCTP statistics module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_stats_module(void);
+
+/**
+ * @internal
+ * init_sctp_params_module - creates and initialises
+ * a new SCTP parameters module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_params_module(void);
+
+/**
+ * @internal
+ * init_sctp_assoc_module - creates and initialises
+ * a new association SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_assoc_module(void);
+
+/**
+ * @internal
+ * init_sctp_assoc_local_module - creates and initialises
+ * a new local association SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_assoc_local_module(void);
+
+/**
+ * @internal
+ * init_sctp_assoc_remote_module - creates and initialises
+ * a new remote association SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_assoc_remote_module(void);
+
+/**
+ * @internal
+ * init_sctp_local_port_module - creates and initialises
+ * a new local port SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_local_port_module(void);
+
+/**
+ * @internal
+ * init_sctp_remote_port_module - creates and initialises
+ * a new remote port SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_remote_port_module(void);
+
+/**
+ * @internal
+ * init_sctp_hostname_module - creates and initialises
+ * a new hostname SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_hostname_module(void);
+
+/**
+ * @internal
+ * init_sctp_primary_ip_module - creates and initialises
+ * a new primary IP SCTP module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_primary_ip_module(void);
+
+/**
+ * @internal
+ * init_sctp_remote_ip_module - creates and initialises
+ * a new SCTP remote ip module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_sctp_remote_ip_module(void);
 
 #endif /* SRC_SNMP_MIB_IP_SCTP_H_ */

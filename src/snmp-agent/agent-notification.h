@@ -27,7 +27,7 @@
 #include <poll.h>
 
 /**
- * init_notification_handler - initialize the notification handler.
+ * init_notification_handler - initialise the notification handler.
  *
  * @param poll_descriptor OUT - poll file descriptor on which to register
  * for incoming notifications
@@ -54,5 +54,13 @@ void handle_incoming_notification(void);
  * @param source IN - source of the authentication failure
  */
 void dispatch_auth_failed_notification(const char *source);
+
+/**
+ * update_notification_keyset - invalidate the USM keyset currently in use.
+ *
+ * @return 0 on success or -1 on any error
+ */
+__attribute__((visibility("default")))
+int update_notification_keyset(void);
 
 #endif /* SRC_SNMP_AGENT_AGENT_NOTIFICATION_H_ */

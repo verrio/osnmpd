@@ -70,6 +70,12 @@ struct in6_pktinfo {
 /* OID prefix for public accessible subtree */
 static SubOID public_prefix[] = { SNMP_OID_SYSTEM_MIB };
 
+/* OID prefix for key change subtree */
+static OID dh_prefix = {
+    .subid = { SNMP_OID_USM_DH },
+    .len = OID_SEQ_LENGTH(SNMP_OID_USM_DH)
+};
+
 /* get-bulk limits */
 #define MAX_REPEAT 0x40
 
@@ -246,6 +252,11 @@ void handle_request(void)
     }
 
     get_statistics()->snmp_out_pkts++;
+}
+
+void update_incoming_keyset(void)
+{
+    init_usm_context();
 }
 
 static int allowed_interface(unsigned int iface)
@@ -567,9 +578,12 @@ static int is_authenticated_get(SnmpUserSlot user, OID *oid)
 static int is_authenticated_set(SnmpUserSlot user, OID *oid)
 {
     //TODO provide fine-grained access control
-    if (user == USER_READ_WRITE || user == USER_ADMIN) {
+    if (user == USER_ADMIN)
         return 0;
-    }
+
+    /* only admin user is allowed to change keys */
+    if (user == USER_READ_WRITE && prefix_compare_OID(&dh_prefix, oid))
+        return 0;
 
     return -1;
 }
@@ -989,8 +1003,8 @@ static int init_usm_context(void)
         usm_context[i].get_engine_time = get_uptime;
 
         if (config->security_level > NO_AUTH_NO_PRIV) {
-            if (derive_usm_master_keys(config->priv_password,
-                    config->auth_password, &usm_context[i])) {
+            if (derive_usm_master_keys(&config->priv_secret,
+                    &config->auth_secret, &usm_context[i])) {
                 syslog(LOG_ERR, "failed to derive master keyset for user %i", i);
                 return -1;
             } else if (derive_usm_diversified_keys(engine_id, engine_id_len, &usm_context[i])) {

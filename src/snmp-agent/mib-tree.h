@@ -33,6 +33,7 @@
 #define SNMP_OID_INTERNET                1,3,6,1
 #define SNMP_OID_ENTERPRISES             SNMP_OID_INTERNET,4,1
 #define SNMP_OID_ENTERPRISE_MIB          ENTERPRISE_MIB
+#define SNMP_OID_CISCO                   SNMP_OID_ENTERPRISES,9
 #define SNMP_OID_MIB2                    SNMP_OID_INTERNET,2,1
 #define SNMP_OID_EXPERIMENTAL            SNMP_OID_INTERNET,3
 #define SNMP_OID_SNMPV2                  SNMP_OID_INTERNET,6
@@ -44,6 +45,7 @@
 #define SNMP_OID_FRAMEWORK_MIB           SNMP_OID_SNMPMODULES,10
 #define SNMP_OID_MPD_STATS_MIB           SNMP_OID_SNMPMODULES,11
 #define SNMP_OID_USM_MIB                 SNMP_OID_SNMPMODULES,15
+#define SNMP_OID_USM_DH                  SNMP_OID_EXPERIMENTAL,101
 #define SNMP_OID_VACM                    SNMP_OID_SNMPMODULES,16
 
 /* USM counters */

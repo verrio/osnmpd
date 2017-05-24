@@ -383,7 +383,7 @@ void dump_variable_binding(const SnmpVariableBinding *binding)
         case SMI_TYPE_OPAQUE:
         case SMI_TYPE_OCTET_STRING: {
             if (binding->value.octet_string.len >= 0) {
-                size_t hex_val_size = 3 + (binding->value.octet_string.len << 1);
+                size_t hex_val_size = HEX_LEN(binding->value.octet_string.len);
                 char *hex_val = malloc(sizeof(char) * hex_val_size);
                 if (hex_val == NULL) {
                     return;

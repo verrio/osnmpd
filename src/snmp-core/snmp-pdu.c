@@ -621,8 +621,7 @@ void dump_snmp_scoped_pdu(const SnmpScopedPDU *pdu)
     syslog(LOG_DEBUG, ">> pdu type : %s", get_pdu_type_name(pdu->type));
     syslog(LOG_DEBUG, ">> request id : %"PRIu32, pdu->request_id);
 
-    size_t buf_size = 3 + max(MAX_CONTEXT_ENGINE_ID, MAX_CONTEXT_ENGINE_NAME)
-            << 1;
+    size_t buf_size = HEX_LEN(max(MAX_CONTEXT_ENGINE_ID, MAX_CONTEXT_ENGINE_NAME));
     uint8_t buf[buf_size];
     if (pdu->context_engine_id_len > 0
             && to_hex(pdu->context_engine_id, pdu->context_engine_id_len, buf,
@@ -666,8 +665,8 @@ void dump_snmp_pdu(const SnmpPDU *pdu, const int scoped_pdu_decrypted)
     syslog(LOG_DEBUG, ">> authenticated : %s", pdu->is_authenticated ? "true" : "false");
     syslog(LOG_DEBUG, ">> requires response : %s", pdu->requires_response ? "true" : "false");
     syslog(LOG_DEBUG, ">>> security parameters:");
-    const size_t sec_buf_len = 3 + max(max(MAX_ENGINE_ID_LENGTH,MAX_USER_NAME_LENGTH),
-          max(MAX_AUTHENTICATION_PARAMETERS,MAX_PRIVACY_PARAMETERS)) << 1;
+    const size_t sec_buf_len = HEX_LEN(max(max(MAX_ENGINE_ID_LENGTH,MAX_USER_NAME_LENGTH),
+          max(MAX_AUTHENTICATION_PARAMETERS,MAX_PRIVACY_PARAMETERS)));
     uint8_t sec_buf[sec_buf_len];
     if (pdu->security_parameters.authoritative_engine_id_len <= 0
             || to_hex(pdu->security_parameters.authoritative_engine_id,
@@ -703,7 +702,7 @@ void dump_snmp_pdu(const SnmpPDU *pdu, const int scoped_pdu_decrypted)
     if (scoped_pdu_decrypted) {
         dump_snmp_scoped_pdu(pdu->scoped_pdu.decrypted_pdu);
     } else {
-        size_t hex_val_size = 3 + pdu->scoped_pdu.encrypted_pdu.len << 1;
+        size_t hex_val_size = HEX_LEN(pdu->scoped_pdu.encrypted_pdu.len);
         uint8_t *hex_val = malloc(sizeof(uint8_t) * hex_val_size);
         if (hex_val == NULL) {
             syslog(LOG_DEBUG, ">> scoped PDU : N/A");

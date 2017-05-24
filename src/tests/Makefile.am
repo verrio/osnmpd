@@ -1,9 +1,14 @@
 noinst_PROGRAMS = pdu-tests
 
-pdu_tests_SOURCES = pdu-tests.c
+pdu_tests_SOURCES = pdu-tests.c \
+        ../snmp-core/snmp-core.h ../snmp-core/snmp-types.c \
+        ../snmp-core/snmp-types.h ../snmp-core/snmp-crypto.c \
+        ../snmp-core/snmp-crypto.h ../snmp-core/snmp-pdu.c \
+        ../snmp-core/snmp-pdu.h ../snmp-core/snmp-date-time.h \
+        ../snmp-core/snmp-date-time.c ../snmp-core/tinyber.c \
+        ../snmp-core/tinyber.h ../snmp-core/utils.c ../snmp-core/utils.h
 
 pdu_tests_LDADD = \
-	$(top_builddir)/src/snmp-core/libsnmp.a \
 	$(OPENSSL_LIB)
 
 AM_CPPFLAGS = \

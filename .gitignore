@@ -50,3 +50,7 @@ test-driver
 Debug/
 src/osnmpd
 dh.param
+conf/osnmpd
+conf/snmpd.conf
+doc/osnmpd.8
+TODO.local

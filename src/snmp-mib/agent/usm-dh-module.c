@@ -35,13 +35,16 @@
 #include "snmp-agent/mib-tree.h"
 #include "snmp-agent/agent-cache.h"
 #include "snmp-agent/agent-config.h"
+#include "snmp-agent/agent-incoming.h"
+#include "snmp-agent/agent-notification.h"
 #include "snmp-core/utils.h"
+#include "snmp-core/snmp-crypto.h"
 #include "snmp-core/snmp-types.h"
 #include "snmp-mib/single-level-module.h"
 #include "snmp-mib/agent/usm-users-module.h"
 #include "snmp-mib/agent/usm-dh-module.h"
 
-#define SNMP_OID_USM_DH_PUBLIC      SNMP_OID_USM_DH,1,1
+#define SNMP_OID_USM_DH_PUBLIC       SNMP_OID_USM_DH,1,1
 #define SNMP_OID_USM_DH_COMPLIANCE   SNMP_OID_USM_DH,2,1,1
 
 static SysOREntry usm_dh_or_entry = {
@@ -56,6 +59,7 @@ static SysOREntry usm_dh_or_entry = {
 /* Diffie-Hellman group parameters */
 static const uint8_t dh_p[] = { USM_DH_PARAM_PRIME };
 static const uint8_t dh_g = USM_DH_PARAM_GENERATOR;
+static const size_t dh_pub_key_len = sizeof(dh_p) / sizeof(uint8_t);
 static DH *user_auth_keys[NUMBER_OF_USER_SLOTS - 1] = {0};
 static DH *user_priv_keys[NUMBER_OF_USER_SLOTS - 1] = {0};
 
@@ -85,6 +89,35 @@ static DH *init_dh_st(void)
     }
 
     return dh;
+}
+
+static DH *get_dh_key(SnmpUserSlot user, int auth)
+{
+    if (user == USER_PUBLIC)
+        return NULL;
+
+    DH *key = auth ? user_auth_keys[user-1] : user_priv_keys[user-1];
+
+    if (key == NULL) {
+        key = init_dh_st();
+        if (key == NULL)
+            return NULL;
+
+        if (DH_generate_key(key) == 0) {
+            syslog(LOG_ERR, "failed to generate DH keypair : %s",
+                ERR_error_string(ERR_get_error(), NULL));
+            DH_free(key);
+            return NULL;
+        }
+
+        if (auth) {
+            user_auth_keys[user-1] = key;
+        } else {
+            user_priv_keys[user-1] = key;
+        }
+    }
+
+    return key;
 }
 
 /**
@@ -131,32 +164,14 @@ fin:
  */
 static uint8_t *get_pub_key_encoded(SnmpUserSlot user, int auth, size_t *enc_len)
 {
-    if (user == USER_PUBLIC)
+    DH *key = get_dh_key(user, auth);
+    if (key == NULL)
         return NULL;
-
-    DH *key = auth ? user_auth_keys[user-1] : user_priv_keys[user-1];
-    if (key == NULL) {
-        key = init_dh_st();
-        if (key == NULL)
-            return NULL;
-
-        if (DH_generate_key(key) == 0) {
-            syslog(LOG_ERR, "failed to generate DH keypair : %s",
-                ERR_error_string(ERR_get_error(), NULL));
-            DH_free(key);
-            return NULL;
-        }
-
-        if (auth) {
-            user_auth_keys[user-1] = key;
-        } else {
-            user_priv_keys[user-1] = key;
-        }
-    }
 
     int key_len = BN_num_bytes(key->pub_key);
     if (key_len <= 0)
         return NULL;
+
     uint8_t *enc = malloc(key_len);
     if(enc == NULL)
         return NULL;
@@ -164,6 +179,82 @@ static uint8_t *get_pub_key_encoded(SnmpUserSlot user, int auth, size_t *enc_len
     if (BN_bn2bin(key->pub_key, enc) != key_len)
         return NULL;
     return enc;
+}
+
+/**
+ * get_pub_key_encoded - returns DER encoded public key for given user.
+ *
+ * @user    IN  - user slot
+ * @auth    IN  - set to 0 if privacy keypair is requested
+ * @pub_key IN  - user provided public key
+ * @return 0 on success, -1 on failure.
+ */
+static int derive_and_apply(SnmpUserSlot user, int auth, uint8_t *pub_key)
+{
+    uint8_t *secret = NULL;
+    size_t secret_len = 0;
+    DH *keypair = get_dh_key(user, auth);
+    if (keypair == NULL)
+        return -1;
+
+    BIGNUM *pub_num = BN_bin2bn(pub_key, dh_pub_key_len, NULL);
+    if (pub_num == NULL)
+        return -1;
+
+    secret_len = DH_size(keypair);
+    if ((secret = calloc(1, secret_len)) == NULL)
+        goto err;
+    if (DH_compute_key(secret, pub_num, keypair) == -1)
+        goto err;
+
+    UserConfiguration *config = get_user_configuration(user);
+    syslog(LOG_INFO, "updating %s key for user %s",
+        auth ? "authentication" : "privacy",
+        (config == NULL || config->name == NULL) ? "unknown" : config->name);
+
+    /* write to configuration */
+    if (auth) {
+        if (secret_len < USM_HASH_KEY_LEN) {
+            syslog(LOG_WARNING, "derived authentication key has size %zu "
+                "while minimum of " STRING(USM_HASH_KEY_LEN) " is required", secret_len);
+            goto err;
+        }
+
+        uint8_t *secret_ptr = secret + (secret_len - USM_HASH_KEY_LEN);
+        set_user_auth_key(user, secret_ptr, USM_HASH_KEY_LEN);
+    } else {
+        if (secret_len < AES_KEY_LEN) {
+            syslog(LOG_WARNING, "derived privacy key has size %zu while "
+                "minimum of " STRING(AES_KEY_LEN) " is required", secret_len);
+            goto err;
+        }
+
+        uint8_t *secret_ptr = secret + (secret_len - AES_KEY_LEN);
+        set_user_priv_key(user, secret_ptr, AES_KEY_LEN);
+    }
+    write_configuration();
+
+    /* update runtime */
+    update_notification_keyset();
+    update_incoming_keyset();
+
+    DH_free(keypair);
+    if (auth) {
+        user_auth_keys[user-1] = NULL;
+    } else {
+        user_priv_keys[user-1] = NULL;
+    }
+
+    if (secret != NULL) {
+        memset(secret, 0, secret_len);
+        free(secret);
+    }
+    BN_free(pub_num);
+    return 0;
+err:
+    free(secret);
+    BN_free(pub_num);
+    return -1;
 }
 
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
@@ -236,8 +327,41 @@ DEF_METHOD(set_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *index, size_t index_len,
     SnmpVariableBinding *binding, int dry_run)
 {
-    /* TODO */
-    return NOT_WRITABLE;
+    int user_row = get_user_row(index, index_len, 0);
+    UserConfiguration *entry = get_row_entry(user_row);
+    if (entry == NULL)
+        return NO_CREATION;
+    if (entry->user == USER_PUBLIC)
+        return NOT_WRITABLE;
+
+    if (dry_run) {
+        if (binding->type != SMI_TYPE_OCTET_STRING)
+            return WRONG_TYPE;
+        if (binding->value.octet_string.len != dh_pub_key_len)
+            return WRONG_LENGTH;
+    } else {
+        switch (column) {
+            case USM_DH_USER_AUTH_KEY_CHANGE:
+            case USM_DH_USER_OWN_AUTH_KEY_CHANGE: {
+                if (derive_and_apply(entry->user, 1, binding->value.octet_string.octets))
+                    return GENERAL_ERROR;
+                break;
+            }
+
+            case USM_DH_USER_PRIV_KEY_CHANGE:
+            case USM_DH_USER_OWN_PRIV_KEY_CHANGE: {
+                if (derive_and_apply(entry->user, 0, binding->value.octet_string.octets))
+                    return GENERAL_ERROR;
+                break;
+            }
+
+            default: {
+                return GENERAL_ERROR;
+            }
+        }
+    }
+
+    return NO_ERROR;
 }
 
 DEF_METHOD(finish_module, void, MibModule, SingleLevelMibModule)

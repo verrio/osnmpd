@@ -24,6 +24,9 @@
 #ifndef SRC_SNMP_CORE_UTILS_H_
 #define SRC_SNMP_CORE_UTILS_H_
 
+#define STRING(x)   #x
+#define HEX_LEN(x)  (3 + (x << 1))
+
 #define SINGLE_PARAM(...) __VA_ARGS__
 
 #ifndef min
@@ -82,7 +85,7 @@ char* strconcat(const char *s1, const char *s2);
  * @return pointer to newly allocated copy, or NULL if failed
  */
 __attribute__((visibility("default")))
-void *memdup(void *src, size_t src_len);
+void *memdup(const void *src, size_t src_len);
 
 /**
  * is_utf8 - Checks if given byte array contains only UTF-8 encoded characters.

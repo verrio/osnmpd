@@ -39,6 +39,7 @@
 
 /* privacy and authentication protocol identifiers */
 #define USM_AES_CFB_128_PROTOCOL      SNMP_OID_SNMPMODULES,10,1,2,4
+#define USM_AES_CFB_256_PROTOCOL      SNMP_OID_CISCO,12,6,1,2
 #define USM_NO_PRIV_PROTOCOL          SNMP_OID_SNMPMODULES,10,1,2,1
 #define USM_HMAC_96_SHA_1_PROTOCOL    SNMP_OID_SNMPMODULES,10,1,1,3
 #define USM_HMAC_192_SHA256_PROTOCOL  SNMP_OID_SNMPMODULES,10,1,1,5
@@ -166,9 +167,9 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
         case USM_USER_AUTH_PROTOCOL: {
             if (entry->security_level > NO_AUTH_NO_PRIV) {
 #ifdef USE_LEGACY_CRYPTO
-            SET_OID_BIND(binding, USM_HMAC_96_SHA_1_PROTOCOL);
+                SET_OID_BIND(binding, USM_HMAC_96_SHA_1_PROTOCOL);
 #else
-            SET_OID_BIND(binding, USM_HMAC_192_SHA256_PROTOCOL);
+                SET_OID_BIND(binding, USM_HMAC_192_SHA256_PROTOCOL);
 #endif
             } else {
                 SET_OID_BIND(binding, USM_NO_AUTH_PROTOCOL);
@@ -178,7 +179,11 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
 
         case USM_USER_PRIV_PROTOCOL: {
             if (entry->security_level > AUTH_NO_PRIV) {
+#ifdef USE_LEGACY_CRYPTO
                 SET_OID_BIND(binding, USM_AES_CFB_128_PROTOCOL);
+#else
+                SET_OID_BIND(binding, USM_AES_CFB_256_PROTOCOL);
+#endif
             } else {
                 SET_OID_BIND(binding, USM_NO_PRIV_PROTOCOL);
             }

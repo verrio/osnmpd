@@ -31,7 +31,6 @@
  * Contains objects required for USM key exchange using a Diffie-Hellman
  * key exchange.  This procedure is common in DOCSIS CM and CMTS equipment.
  */
-#define SNMP_OID_USM_DH     SNMP_OID_EXPERIMENTAL,101
 
 /**
  * init_usm_dh_module - creates and initialises a new D-H USM module.

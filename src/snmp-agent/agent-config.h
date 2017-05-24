@@ -38,13 +38,28 @@ typedef struct {
 } TrapConfiguration;
 
 typedef struct {
+
+    /* user profile */
 	SnmpUserSlot user;
+
+	/* user enabled */
 	int enabled;
+
+	/* user security name */
 	char *name;
-	char *priv_password;
-	char *auth_password;
+
+	/* privacy password or derived key */
+	SnmpUSMSecret priv_secret;
+
+	/* authentication password or derived key */
+	SnmpUSMSecret auth_secret;
+
+	/* security model enforced for this user */
 	SnmpSecurityModel security_model;
+
+	/* security level enforced for this user */
 	SnmpSecurityLevel security_level;
+
 } UserConfiguration;
 
 /**
@@ -67,6 +82,7 @@ int load_configuration(void);
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int write_configuration(void);
 
 /**
@@ -182,6 +198,30 @@ int set_user_priv_password(SnmpUserSlot user, char *password);
  * @return 0 on success or -1 on any error
  */
 int set_user_auth_password(SnmpUserSlot user, char *password);
+
+/**
+ * set_user_priv_derived_key - updates the privacy key for a given user.
+ *
+ * @param user     IN - selected user slot
+ * @param key      IN - new privacy key
+ * @param key_len  IN - key length
+ *
+ * @return 0 on success or -1 on any error
+ */
+__attribute__((visibility("default")))
+int set_user_priv_key(SnmpUserSlot user, const uint8_t *key, size_t key_len);
+
+/**
+ * set_user_auth_derived_key - updates the authentication key for a given user.
+ *
+ * @param user     IN - selected user slot
+ * @param key      IN - new authentication key
+ * @param key_len  IN - key length
+ *
+ * @return 0 on success or -1 on any error
+ */
+__attribute__((visibility("default")))
+int set_user_auth_key(SnmpUserSlot user, const uint8_t *key, size_t key_len);
 
 /**
  * get_engine_id - updates the engine ID to the given string.

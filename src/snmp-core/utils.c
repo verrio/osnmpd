@@ -83,7 +83,7 @@ char *strconcat(const char *s1, const char *s2)
     return result;
 }
 
-void *memdup(void *src, size_t src_len)
+void *memdup(const void *src, size_t src_len)
 {
     void *dup = malloc(src_len);
 

@@ -421,8 +421,8 @@ static int add_generic_arguments(buf_t *buf, SnmpScopedPDU *scoped_pdu)
             }
 
             default: {
-                syslog(LOG_WARNING, "unexpected notification argument type %02x",
-                    tlv.type);
+                syslog(LOG_WARNING,
+                    "unexpected notification argument type %02x", tlv.type);
             }
         }
     }

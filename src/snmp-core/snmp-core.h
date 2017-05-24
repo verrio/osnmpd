@@ -27,7 +27,8 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
-#include <config.h>
 #include <syslog.h>
+
+#include "config.h"
 
 #endif /* SRC_SNMP_CORE_SNMP_CORE_H_ */
