@@ -176,14 +176,15 @@ int derive_usm_diversified_keys(const uint8_t *engine_id,
 /**
  * process_incoming_pdu - authenticates and decrypts an incoming PDU.
  *
- * @param pdu IN - Incoming PDU without parsed scoped PDU.
- * @param scoped_pdu OUT - destination buffer for decrypted scoped PDU.
+ * @param src IN - Incoming PDU before parsing.
+ * @param src_len IN - Total length of PDU.
+ * @param pdu OUT - destination for decrypted scoped PDU.
  * @param context IN - USM context.
  * @param time_sync IN - if non-zero, PDU is assumed to be time sync request.
  *
  * @return 0 on success, negative number on processing error.
  */
-int process_incoming_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
+int process_incoming_pdu(uint8_t *src, size_t src_len, SnmpPDU *pdu,
         SnmpUSMContext *context, int time_sync);
 
 /**

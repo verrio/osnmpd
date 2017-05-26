@@ -530,7 +530,8 @@ int load_configuration(void)
                     KEY_USER_AUTH_KEY, &str) == CONFIG_TRUE) {
                 uint8_t key[USER_PASSWORD_MAX_LEN];
                 int size = from_hex(str, key, sizeof(key));
-                if (size <= 0) {
+                if (size > 0) {
+                    user_configuration[slot].auth_secret.is_key = 1;
                     user_configuration[slot].auth_secret.secret.key = memdup(key, size);
                     user_configuration[slot].auth_secret.secret_len = size;
                     user_password_overruled[slot] = 1;
@@ -553,7 +554,8 @@ int load_configuration(void)
                     KEY_USER_PRIV_KEY, &str) == CONFIG_TRUE) {
                 uint8_t key[USER_PASSWORD_MAX_LEN];
                 int size = from_hex(str, key, sizeof(key));
-                if (size <= 0) {
+                if (size > 0) {
+                    user_configuration[slot].priv_secret.is_key = 1;
                     user_configuration[slot].priv_secret.secret.key = memdup(key, size);
                     user_configuration[slot].priv_secret.secret_len = size;
                     user_password_overruled[slot] = 1;
@@ -563,27 +565,29 @@ int load_configuration(void)
                 }
             }
 
-            /* set user security model */
-            if (config_setting_lookup_string(user,
-                KEY_USER_SECURITY_MODEL, &str) == CONFIG_TRUE) {
-                user_configuration[slot].security_model =
-                        get_security_model_from_string(str);
-                if (user_configuration[slot].security_model == -1) {
-                    syslog(LOG_ERR, "unsupported security model %s", str);
-                    ret_val = -1;
-                    user_configuration[slot].security_model = USM;
+            if (slot != USER_PUBLIC) {
+                /* set user security model */
+                if (config_setting_lookup_string(user,
+                    KEY_USER_SECURITY_MODEL, &str) == CONFIG_TRUE) {
+                    user_configuration[slot].security_model =
+                            get_security_model_from_string(str);
+                    if (user_configuration[slot].security_model == -1) {
+                        syslog(LOG_ERR, "unsupported security model %s", str);
+                        ret_val = -1;
+                        user_configuration[slot].security_model = USM;
+                    }
                 }
-            }
 
-            /* set user security level */
-            if (config_setting_lookup_string(user,
-                KEY_USER_SECURITY_LEVEL, &str) == CONFIG_TRUE) {
-                user_configuration[slot].security_level =
-                        get_security_level_from_string(str);
-                if (user_configuration[slot].security_level == -1) {
-                    syslog(LOG_ERR, "unsupported security level %s", str);
-                    ret_val = -1;
-                    user_configuration[slot].security_level = AUTH_PRIV;
+                /* set user security level */
+                if (config_setting_lookup_string(user,
+                    KEY_USER_SECURITY_LEVEL, &str) == CONFIG_TRUE) {
+                    user_configuration[slot].security_level =
+                            get_security_level_from_string(str);
+                    if (user_configuration[slot].security_level == -1) {
+                        syslog(LOG_ERR, "unsupported security level %s", str);
+                        ret_val = -1;
+                        user_configuration[slot].security_level = AUTH_PRIV;
+                    }
                 }
             }
         }
@@ -804,9 +808,8 @@ int get_agent_port(void)
 
 int set_agent_port(int new_port)
 {
-    if (new_port < 0 || new_port == 80 || new_port == 443 || new_port == 4059) {
+    if (new_port < 0 || new_port == 80 || new_port == 443 || new_port == 4059)
         return -1;
-    }
 
     port = new_port;
     return 0;
@@ -827,9 +830,8 @@ int set_agent_interfaces(char *ifaces[])
     }
 
     int count = 0;
-    while (ifaces[count] != NULL) {
+    while (ifaces[count] != NULL)
         count++;
-    }
 
     interfaces = malloc(sizeof(uint8_t *) * (count + 1));
     if (interfaces == NULL) {
@@ -838,9 +840,8 @@ int set_agent_interfaces(char *ifaces[])
     interfaces[count] = NULL;
     for (int i = 0; i < count; i++) {
         interfaces[i] = strdup(ifaces[i]);
-        if (interfaces[i] == NULL) {
+        if (interfaces[i] == NULL)
             return -1;
-        }
     }
 
     return 0;
@@ -879,18 +880,21 @@ UserConfiguration *get_user_configuration(SnmpUserSlot user)
 
 int set_user_configuration(UserConfiguration *configuration)
 {
-    if (configuration->user == -1) {
+    if (configuration->user == -1)
         return -1;
-    }
-
     SnmpUserSlot slot = configuration->user;
+
+    /* in place update */
+    if (configuration == &user_configuration[slot])
+        return 0;
+
+    /* copy fields */
     user_configuration[slot].enabled = configuration->enabled;
     user_configuration[slot].security_level = configuration->security_level;
     user_configuration[slot].security_model = configuration->security_model;
 
-    if (user_configuration[slot].name != (char *) DEFAULT_USER_NAMES[slot]) {
+    if (user_configuration[slot].name != (char *) DEFAULT_USER_NAMES[slot])
         free(user_configuration[slot].name);
-    }
     if (configuration->name == NULL) {
         user_configuration[slot].name = (char *) DEFAULT_USER_NAMES[slot];
     } else {

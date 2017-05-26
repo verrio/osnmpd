@@ -182,6 +182,35 @@ static uint8_t *get_pub_key_encoded(SnmpUserSlot user, int auth, size_t *enc_len
 }
 
 /**
+ * validate_pub_key - validates the given public key for given user.
+ *
+ * @user    IN  - user slot
+ * @auth    IN  - set to 0 if privacy keypair is requested
+ * @pub_key IN  - user provided public key
+ * @return result of validation.
+ */
+static SnmpErrorStatus validate_pub_key(SnmpUserSlot user, int auth,
+        SnmpVariableBinding *pub_key)
+{
+    if (pub_key->type != SMI_TYPE_OCTET_STRING)
+        return WRONG_TYPE;
+    if (pub_key->value.octet_string.len != (dh_pub_key_len << 1))
+        return WRONG_LENGTH;
+    size_t agent_key_len;
+    uint8_t *agent_key = get_pub_key_encoded(user, auth, &agent_key_len);
+
+    SnmpErrorStatus res;
+    if (agent_key == NULL || agent_key_len != dh_pub_key_len ||
+        memcmp(agent_key, pub_key->value.octet_string.octets, dh_pub_key_len)) {
+        res = WRONG_VALUE;
+    } else {
+        res = NO_ERROR;
+    }
+    free(agent_key);
+    return res;
+}
+
+/**
  * get_pub_key_encoded - returns DER encoded public key for given user.
  *
  * @user    IN  - user slot
@@ -278,18 +307,17 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *row, size_t row_len,
     SnmpVariableBinding *binding, int next_row)
 {
-    int user_row = get_user_row(row, row_len, next_row);
-    UserConfiguration *entry = get_row_entry(user_row);
-    CHECK_INSTANCE_FOUND(next_row, entry);
+    UserConfiguration *user = get_user_row(row, row_len, next_row);
+    CHECK_INSTANCE_FOUND(next_row, user);
 
     switch (column) {
         case USM_DH_USER_AUTH_KEY_CHANGE:
         case USM_DH_USER_OWN_AUTH_KEY_CHANGE: {
-            if (entry->user == USER_PUBLIC) {
+            if (user->user == USER_PUBLIC) {
                 SET_OCTET_STRING_BIND(binding, NULL, 0);
             } else {
                 size_t pub_key_len;
-                uint8_t *pub_key = get_pub_key_encoded(entry->user, 1, &pub_key_len);
+                uint8_t *pub_key = get_pub_key_encoded(user->user, 1, &pub_key_len);
                 if (pub_key == NULL)
                     return GENERAL_ERROR;
                 SET_OCTET_STRING_BIND(binding, pub_key, pub_key_len);
@@ -299,11 +327,11 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
 
         case USM_DH_USER_PRIV_KEY_CHANGE:
         case USM_DH_USER_OWN_PRIV_KEY_CHANGE: {
-            if (entry->user == USER_PUBLIC) {
+            if (user->user == USER_PUBLIC) {
                 SET_OCTET_STRING_BIND(binding, NULL, 0);
             } else {
                 size_t pub_key_len;
-                uint8_t *pub_key = get_pub_key_encoded(entry->user, 0, &pub_key_len);
+                uint8_t *pub_key = get_pub_key_encoded(user->user, 0, &pub_key_len);
                 if (pub_key == NULL)
                     return GENERAL_ERROR;
                 SET_OCTET_STRING_BIND(binding, pub_key, pub_key_len);
@@ -318,46 +346,48 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
 
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
-    INSTANCE_FOUND_OCTET_STRING_ROW2(next_row, SNMP_OID_USM_DH_PUBLIC,
-        USM_DH_USER_KEY_TABLE, column, engine_id, engine_id_len, \
-        get_row_user_name(user_row), strlen((char *) get_row_user_name(user_row)));
+    INSTANCE_FOUND_OCTET_STRING_ROW2(next_row, SNMP_OID_USM_DH_PUBLIC, id, \
+        column, engine_id, engine_id_len, (uint8_t *) user->name, \
+        user->name == NULL ? 0 : strlen(user->name));
 }
 
 DEF_METHOD(set_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *index, size_t index_len,
     SnmpVariableBinding *binding, int dry_run)
 {
-    int user_row = get_user_row(index, index_len, 0);
-    UserConfiguration *entry = get_row_entry(user_row);
-    if (entry == NULL)
+    UserConfiguration *user = get_user_row(index, index_len, 0);
+    if (user == NULL)
         return NO_CREATION;
-    if (entry->user == USER_PUBLIC)
+    if (user->user == USER_PUBLIC)
         return NOT_WRITABLE;
 
-    if (dry_run) {
-        if (binding->type != SMI_TYPE_OCTET_STRING)
-            return WRONG_TYPE;
-        if (binding->value.octet_string.len != dh_pub_key_len)
-            return WRONG_LENGTH;
-    } else {
-        switch (column) {
-            case USM_DH_USER_AUTH_KEY_CHANGE:
-            case USM_DH_USER_OWN_AUTH_KEY_CHANGE: {
-                if (derive_and_apply(entry->user, 1, binding->value.octet_string.octets))
+    switch (column) {
+        case USM_DH_USER_AUTH_KEY_CHANGE:
+        case USM_DH_USER_OWN_AUTH_KEY_CHANGE: {
+            if (dry_run) {
+                return validate_pub_key(user->user, 1, binding);
+            } else {
+                if (derive_and_apply(user->user, 1,
+                    binding->value.octet_string.octets + dh_pub_key_len))
                     return GENERAL_ERROR;
-                break;
             }
+            break;
+        }
 
-            case USM_DH_USER_PRIV_KEY_CHANGE:
-            case USM_DH_USER_OWN_PRIV_KEY_CHANGE: {
-                if (derive_and_apply(entry->user, 0, binding->value.octet_string.octets))
+        case USM_DH_USER_PRIV_KEY_CHANGE:
+        case USM_DH_USER_OWN_PRIV_KEY_CHANGE: {
+            if (dry_run) {
+                return validate_pub_key(user->user, 0, binding);
+            } else {
+                if (derive_and_apply(user->user, 0,
+                    binding->value.octet_string.octets + dh_pub_key_len))
                     return GENERAL_ERROR;
-                break;
             }
+            break;
+        }
 
-            default: {
-                return GENERAL_ERROR;
-            }
+        default: {
+            return NOT_WRITABLE;
         }
     }
 

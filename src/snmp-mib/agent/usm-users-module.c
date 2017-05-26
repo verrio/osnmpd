@@ -22,11 +22,14 @@
  */
 
 #include <stddef.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "config.h"
 #include "snmp-agent/agent-config.h"
 #include "snmp-agent/agent-cache.h"
+#include "snmp-agent/agent-incoming.h"
+#include "snmp-agent/agent-notification.h"
 #include "snmp-agent/mib-tree.h"
 #include "snmp-core/utils.h"
 #include "snmp-core/snmp-crypto.h"
@@ -43,7 +46,15 @@
 #define USM_NO_PRIV_PROTOCOL          SNMP_OID_SNMPMODULES,10,1,2,1
 #define USM_HMAC_96_SHA_1_PROTOCOL    SNMP_OID_SNMPMODULES,10,1,1,3
 #define USM_HMAC_192_SHA256_PROTOCOL  SNMP_OID_SNMPMODULES,10,1,1,5
-#define USM_NO_AUTH_PROTOCOL          SNMP_OID_SNMPMODULES,2,1,1,1
+#define USM_NO_AUTH_PROTOCOL          SNMP_OID_SNMPMODULES,10,1,1,1
+
+#ifdef USE_LEGACY_CRYPTO
+#define USM_AUTH_PROTOCOL             USM_HMAC_96_SHA_1_PROTOCOL
+#define USM_PRIV_PROTOCOL             USM_AES_CFB_128_PROTOCOL
+#else
+#define USM_AUTH_PROTOCOL             USM_HMAC_192_SHA256_PROTOCOL
+#define USM_PRIV_PROTOCOL             USM_AES_CFB_256_PROTOCOL
+#endif
 
 enum USMUsersMIBObjects {
     USM_USER_SPIN_LOCK = 1,
@@ -66,54 +77,110 @@ enum USMUserTableColumns {
     USM_USER_STATUS = 13
 };
 
-/* table rows */
-static const char *user_names[] = { "ADMIN", "PUBLIC", "READ_ONLY", "READ_WRITE" };
-static const SnmpUserSlot user_slots[] = { USER_ADMIN, USER_PUBLIC,
-        USER_READ_ONLY, USER_READ_WRITE };
+static const char *sec_names[] = { "PUBLIC", "READ_ONLY", "READ_WRITE", "ADMIN" };
 
-int get_user_row(SubOID *row, size_t row_len, int next_row)
+UserConfiguration *get_user_row(SubOID *row, size_t row_len, int next_row)
 {
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
+    SubOID *user_offset = row + engine_id_len + 1;
+    size_t user_len = row_len < engine_id_len + 1 ?
+            0 : row_len - engine_id_len - 1;
 
     /* first index contains engine id */
     switch (cmp_index_to_array(engine_id, engine_id_len, row,
             min(engine_id_len + 1, row_len))) {
         case -1: {
-            return next_row ? 0 : -1;
+            if (next_row) {
+                user_len = 0;
+            } else {
+                return NULL;
+            }
+            break;
         }
 
         case 1: {
-            return -1;
+            return NULL;
         }
     }
 
-    if (row_len < engine_id_len + 1) {
-        return next_row ? 0 : -1;
-    }
-
     /* second index contains user name */
-    return bsearch_string_indices(user_names,
-            sizeof(user_names) / sizeof(char *), row + engine_id_len + 1,
-            row_len - engine_id_len - 1, next_row);
-}
+    UserConfiguration *conf = NULL;
 
-UserConfiguration *get_row_entry(int row)
-{
-    if (row == -1) {
-        return NULL;
-    } else {
-        return get_user_configuration(user_slots[row]);
+    for (int i = 0; i < NUMBER_OF_USER_SLOTS; i++) {
+        UserConfiguration *c = get_user_configuration(i);
+        if (c == NULL || c->name == NULL)
+            continue;
+        size_t name_len = strlen(c->name);
+        switch (cmp_index_to_array((uint8_t *) c->name, name_len, user_offset, user_len)) {
+            case 0: {
+                if (!next_row)
+                    return c;
+                break;
+            }
+
+            case -1: {
+                if (next_row &&
+                    (conf == NULL || (strlen(c->name) < strlen(conf->name)) ||
+                    ((strlen(c->name) == strlen(conf->name)) &&
+                    (strcmp(c->name, conf->name) < 0)))) {
+                    conf = c;
+                }
+                break;
+            }
+        }
     }
+
+    return conf;
 }
 
-uint8_t *get_row_user_name(int row)
+static SnmpErrorStatus set_user_active(UserConfiguration *user, int enabled)
 {
-	if (row == -1) {
-		return NULL;
-	} else {
-		return (uint8_t *) user_names[row];
-	}
+    user->enabled = enabled;
+    if (set_user_configuration(user))
+        return GENERAL_ERROR;
+    if (write_configuration())
+        return GENERAL_ERROR;
+    update_incoming_keyset();
+    return NO_ERROR;
+}
+
+static SnmpErrorStatus set_user_name(UserConfiguration *user,
+        const SnmpVariableBinding *binding, int dry_run)
+{
+    if (dry_run) {
+        if (binding->type != SMI_TYPE_OCTET_STRING)
+            return WRONG_TYPE;
+        if (binding->value.octet_string.len < 1 ||
+            binding->value.octet_string.len > 0x40)
+            return WRONG_LENGTH;
+        if (is_utf8(binding->value.octet_string.octets,
+                binding->value.octet_string.len))
+            return WRONG_ENCODING;
+        for (int i = 0; i < NUMBER_OF_USER_SLOTS; i++) {
+            if (i == user->user)
+                continue;
+            UserConfiguration *config = get_user_configuration(i);
+            if (config != NULL && config->name != NULL &&
+                strlen(config->name) == binding->value.octet_string.len &&
+                !strncmp(config->name, (char *) binding->value.octet_string.octets,
+                        binding->value.octet_string.len))
+                return WRONG_VALUE;
+        }
+    } else {
+        UserConfiguration new_config;
+        memcpy(&new_config, user, sizeof(UserConfiguration));
+        binding->value.octet_string.octets[binding->value.octet_string.len] = '\0';
+        new_config.name = (char *) binding->value.octet_string.octets;
+        if (set_user_configuration(&new_config))
+            return GENERAL_ERROR;
+        if (write_configuration())
+            return GENERAL_ERROR;
+        update_incoming_keyset();
+        update_notification_keyset();
+    }
+
+    return NO_ERROR;
 }
 
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
@@ -127,16 +194,15 @@ DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
 DEF_METHOD(set_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding, int dry_run)
 {
-    return NOT_WRITABLE;
+    return NO_ERROR;
 }
 
 DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *row, size_t row_len,
     SnmpVariableBinding *binding, int next_row)
 {
-    int user_row = get_user_row(row, row_len, next_row);
-    UserConfiguration *entry = get_row_entry(user_row);
-    CHECK_INSTANCE_FOUND(next_row, entry);
+    UserConfiguration *user = get_user_row(row, row_len, next_row);
+    CHECK_INSTANCE_FOUND(next_row, user);
 
     switch (column) {
         case USM_USER_ENGINE_ID: {
@@ -148,14 +214,17 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
         }
 
         case USM_USER_NAME: {
-            SET_OCTET_STRING_RESULT(binding, strdup(user_names[user_row]),
-                    strlen(user_names[user_row]));
+            if (user->name == NULL) {
+                SET_OCTET_STRING_BIND(binding, NULL, 0);
+            } else {
+                SET_OCTET_STRING_RESULT(binding, strdup(user->name), strlen(user->name));
+            }
             break;
         }
 
         case USM_USER_SECURITY_NAME: {
             SET_OCTET_STRING_RESULT(binding,
-                    strdup(entry->name), strlen(entry->name));
+                    strdup(sec_names[user->user]), strlen(sec_names[user->user]));
             break;
         }
 
@@ -165,12 +234,8 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
         }
 
         case USM_USER_AUTH_PROTOCOL: {
-            if (entry->security_level > NO_AUTH_NO_PRIV) {
-#ifdef USE_LEGACY_CRYPTO
-                SET_OID_BIND(binding, USM_HMAC_96_SHA_1_PROTOCOL);
-#else
-                SET_OID_BIND(binding, USM_HMAC_192_SHA256_PROTOCOL);
-#endif
+            if (user->security_level > NO_AUTH_NO_PRIV) {
+                SET_OID_BIND(binding, USM_AUTH_PROTOCOL);
             } else {
                 SET_OID_BIND(binding, USM_NO_AUTH_PROTOCOL);
             }
@@ -178,12 +243,8 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
         }
 
         case USM_USER_PRIV_PROTOCOL: {
-            if (entry->security_level > AUTH_NO_PRIV) {
-#ifdef USE_LEGACY_CRYPTO
-                SET_OID_BIND(binding, USM_AES_CFB_128_PROTOCOL);
-#else
-                SET_OID_BIND(binding, USM_AES_CFB_256_PROTOCOL);
-#endif
+            if (user->security_level > AUTH_NO_PRIV) {
+                SET_OID_BIND(binding, USM_PRIV_PROTOCOL);
             } else {
                 SET_OID_BIND(binding, USM_NO_PRIV_PROTOCOL);
             }
@@ -200,14 +261,14 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
         }
 
         case USM_USER_STORAGE_TYPE: {
-            /* readOnly */
-            SET_INTEGER_BIND(binding, 5);
+            /* permanent */
+            SET_INTEGER_BIND(binding, 4);
             break;
         }
 
         case USM_USER_STATUS: {
             /* active/notInService */
-            SET_INTEGER_BIND(binding, entry->enabled ? 1 : 2);
+            SET_INTEGER_BIND(binding, user->enabled ? 1 : 2);
             break;
         }
     }
@@ -215,16 +276,52 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
     INSTANCE_FOUND_OCTET_STRING_ROW2(next_row, SNMP_OID_USM_USERS_MIB, id, \
-        column, engine_id, engine_id_len, (uint8_t *) user_names[user_row], \
-        strlen(user_names[user_row]));
+        column, engine_id, engine_id_len, (uint8_t *) user->name, \
+        user->name == NULL ? 0 : strlen(user->name));
 }
 
 DEF_METHOD(set_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *row, size_t row_len,
     SnmpVariableBinding *binding, int dry_run)
 {
-    int user_row = get_user_row(row, row_len, 0);
-    return user_row == -1 ? NO_CREATION : NOT_WRITABLE;
+    UserConfiguration *user = get_user_row(row, row_len, 0);
+    if (user == NULL)
+        return NO_CREATION;
+
+    switch (column) {
+        case USM_USER_NAME:
+        case USM_USER_SECURITY_NAME: {
+            return set_user_name(user, binding, dry_run);
+        }
+
+        case USM_USER_AUTH_KEY_CHANGE:
+        case USM_USER_OWN_AUTH_KEY_CHANGE:
+        case USM_USER_PRIV_KEY_CHANGE:
+        case USM_USER_OWN_PRIV_KEY_CHANGE:
+        case USM_USER_PUBLIC: {
+            syslog(LOG_WARNING, "Change user passwords in USM table disallowed."
+                    "Please use D-H table instead.");
+            return NOT_WRITABLE;
+        }
+
+        case USM_USER_STATUS: {
+            if (dry_run) {
+                if (binding->type != SMI_TYPE_INTEGER_32)
+                    return WRONG_TYPE;
+                if (binding->value.integer != 1 && binding->value.integer != 2)
+                    return WRONG_VALUE;
+            } else if (set_user_active(user, binding->value.integer == 1)) {
+                return GENERAL_ERROR;
+            }
+            break;
+        }
+
+        default: {
+            return NOT_WRITABLE;
+        }
+    }
+
+    return NO_ERROR;
 }
 
 DEF_METHOD(finish_module, void, MibModule, SingleLevelMibModule)

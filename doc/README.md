@@ -145,7 +145,7 @@ I admit, SNMP has it quirky sides.  In particular, the lack of table joins and o
 
 I'm not qualified to answer that, but it has been around for more than 15 years now, and the only security risk I've found on the web is related to the engine and time discovery (which could be spoofed, thereby repeating packets with the same IV).  A good client could avoid that attack though by using a strong RNG for the random part of the IV, and by incrementing the message ID on every request.
 
-I like to believe that “no security incidents found” means that it's a safe standard, but it most likely means that nobody really bothered to look into it.  Especially the key derivation described in the RFC feels kind of fruity, but again I'm not in a position to judge that.  If you do believe there are security risks involved, please let me know!  I'm more than happy to learn more on the matter.
+I like to believe that “no security incidents found” means that it's a safe standard, but it most likely means that nobody really bothered to look into it.  Especially the key derivation described in the RFC feels kind of fruity;  I tried to avoid those parts where possible (e.g. use the Diffie-Hellman procedure to renew keys instead of the custom hash-based USM table method).  If you do believe there are security risks involved, please let me know!  I'm more than happy to learn more on the matter.
 
 #### Any plans on supporting other transport layers (TCP/SSH/TLS)?
 
@@ -170,14 +170,11 @@ Net-SNMP isn't truly portable either; they support antiquarian systems like DYNI
 
 #### Can you at least guarantee this implementation is conform with the SNMPv2/3 RFCs?
 
-I travel the path of least resistence: I break no SNMP clients, nor do I comply with their standards (that's a fancy way of saying I didn't bother to be RFC compliant :-).  Restrictive/permissive access rights on attributes, missing attributes, missing MIBs which are mandatory, missing security settings, this agent has it all.  My main concern was being able to transfer statistics in a secure way to existing clients.  I've validated compatibility with the following applications:
+I travel the path of least resistence: I break no SNMP clients, nor do I fully comply with their standards (that's a fancy way of saying I didn't really try to be RFC compliant :-).  Restrictive/permissive access rights on attributes, missing attributes, missing MIBs which are mandatory, missing security settings, this agent has it all.  My main concern was being able to transfer statistics in a secure way to existing clients.  I've validated compatibility with the following MIB browsers:
 
-- [Net-SNMP](http://www.net-snmp.org/): both walking the tree and receiving events works fine, though legacy security should be enabled.
-- [OidView Network Management Tools](http://www.oidview.com/products.html): walking the tree works, but again only with legacy security enabled.
-- [iReasoning MIB browser](http://www.ireasoning.com/mibbrowser.shtml): quite a few stacktraces in their logging, but this client supports all USM security profiles.
-- [ZoHo MIBBrowser](https://www.manageengine.com/products/mibbrowser-free-tool/): this application stacktraces when I try to send it an inform notification;  I haven't been able to get that working, but I notice they've replaced their old Java application on their website with a newer client that unfortunately doesn't work under wine, so I can't test that.
+[Net-SNMP](http://www.net-snmp.org/), [SnmpB](https://sourceforge.net/projects/snmpb/), [OidView Network Management Tools](http://www.oidview.com/products.html), [iReasoning MIB browser](http://www.ireasoning.com/mibbrowser.shtml), [ZoHo MIBBrowser](https://www.manageengine.com/products/mibbrowser-free-tool/), [MG-SOFT MIB browser](http://www.mg-soft.com/mgMibBrowserPE.html), [Unbrowse SNMP](http://www.unleashnetworks.com/products/unbrowse-snmp.html), [SNMP-Probe](http://www.snmp-probe.com/SNMP-Probe/index.html)
 
-Should there be issues with other clients, let me know and I'll fix it right away.
+Of all these applications, I'd say iReasoning provides the most “feature-complete” implementation, while Net-SNMP is still the most useful one for scripting.  Should there be issues with other clients, let me know and I'll fix it right away.
 
 #### Doesn't that make this project useless for anything serious?
 

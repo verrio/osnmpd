@@ -45,7 +45,7 @@ typedef struct {
 	/* user enabled */
 	int enabled;
 
-	/* user security name */
+	/* user name */
 	char *name;
 
 	/* privacy password or derived key */
@@ -177,6 +177,7 @@ UserConfiguration *get_user_configuration(SnmpUserSlot user);
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int set_user_configuration(UserConfiguration *configuration);
 
 /**
@@ -187,6 +188,7 @@ int set_user_configuration(UserConfiguration *configuration);
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int set_user_priv_password(SnmpUserSlot user, char *password);
 
 /**
@@ -197,6 +199,7 @@ int set_user_priv_password(SnmpUserSlot user, char *password);
  *
  * @return 0 on success or -1 on any error
  */
+__attribute__((visibility("default")))
 int set_user_auth_password(SnmpUserSlot user, char *password);
 
 /**

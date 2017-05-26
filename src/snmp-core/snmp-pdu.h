@@ -42,6 +42,8 @@
 #define PARSE_ERROR_VERSION   -2
 #define PARSE_ERROR_SEC_MODEL -3
 
+#define GET_SCOPED_PDU(pdu) (&(pdu).scoped_pdu.decrypted)
+
 #define NEW_VAR_BINDING(x,y) \
 	SnmpVariableBinding *x = add_variable_binding(y); \
 	if (x == NULL) { \
@@ -91,23 +93,24 @@ typedef enum {
 typedef struct {
 
     /* authoritative engine ID */
-    uint8_t authoritative_engine_id[MAX_ENGINE_ID_LENGTH];
-    size_t authoritative_engine_id_len;
+    uint8_t auth_engine_id[MAX_ENGINE_ID_LENGTH];
+    size_t auth_engine_id_len;
 
     /* authoritative engine boot counter and time */
-    uint32_t authoritative_engine_boots;
-    uint32_t authoritative_engine_time;
+    uint32_t auth_engine_boots;
+    uint32_t auth_engine_time;
 
     /* securityName */
     char user_name[MAX_USER_NAME_LENGTH];
 
     /* authentication parameters (digest) */
-    uint8_t authentication_parameters[MAX_AUTHENTICATION_PARAMETERS];
-    size_t authentication_parameters_len;
+    uint8_t auth_param[MAX_AUTHENTICATION_PARAMETERS];
+    size_t auth_param_len;
+    uint8_t *auth_param_offset;
 
     /* privacy parameters (salt) */
-    uint8_t privacy_parameters[MAX_PRIVACY_PARAMETERS];
-    size_t privacy_parameters_len;
+    uint8_t priv_param[MAX_PRIVACY_PARAMETERS];
+    size_t priv_param_len;
 
 } SnmpUSMSecurityParameters;
 
@@ -161,16 +164,17 @@ typedef struct {
     uint8_t requires_response;
 
     /* Security parameter block */
-    SnmpUSMSecurityParameters security_parameters;
+    SnmpUSMSecurityParameters security_params;
 
     /* Scoped PDU */
     union {
         struct {
             uint8_t *data;
             size_t len;
-        } encrypted_pdu;
-        SnmpScopedPDU *decrypted_pdu;
+        } encrypted;
+        SnmpScopedPDU decrypted;
     } scoped_pdu;
+
 } SnmpPDU;
 
 /**
@@ -195,7 +199,7 @@ int decode_snmp_pdu(const asn1raw_t *src, SnmpPDU *pdu);
  * @return 0 on success, -1 on error.
  * @note scoped PDU is expected already encrypted
  */
-int encode_snmp_pdu(const SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu);
+int encode_snmp_pdu(SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu);
 
 /**
  * decode_usm_security_parameters - Extracts USM security parameters
@@ -211,12 +215,12 @@ int decode_usm_security_parameters(const asn1raw_t *src, SnmpUSMSecurityParamete
 /**
  * encode_usm_security_parameters - Encodes the USM security parameters to a BER TLV.
  *
- * @param params IN - USM parameter block to be encoded.
+ * @param params IN/OUT - USM parameter block to be encoded.
  * @param dst OUT - destination output.
  *
  * @return 0 on success, -1 on encoding error.
  */
-int encode_usm_security_parameters(const SnmpUSMSecurityParameters *params, buf_t *dst);
+int encode_usm_security_parameters(SnmpUSMSecurityParameters *params, buf_t *dst);
 
 /**
  * decode_snmp_scoped_pdu - Extracts a scoped SNMP PDU from a

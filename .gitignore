@@ -49,6 +49,7 @@ coverage/
 test-driver
 Debug/
 src/osnmpd
+src/tests/pdu-tests
 dh.param
 conf/osnmpd
 conf/snmpd.conf

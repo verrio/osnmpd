@@ -129,19 +129,17 @@ static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offs
 		exit(1);
 	}
 
-	SnmpScopedPDU scoped_pdu;
-	src.value = pdu.scoped_pdu.encrypted_pdu.data + scoped_offset;
-	src.length = pdu.scoped_pdu.encrypted_pdu.len - scoped_offset;
+	src.value = pdu.scoped_pdu.encrypted.data + scoped_offset;
+	src.length = pdu.scoped_pdu.encrypted.len - scoped_offset;
 	src.type = TAG_SEQUENCE;
 	src.flags = FLAG_STRUCTURED;
 
-	int res2 = decode_snmp_scoped_pdu(&src, &scoped_pdu);
+	int res2 = decode_snmp_scoped_pdu(&src, &pdu.scoped_pdu.decrypted);
 	if (res2) {
 		fprintf(stderr, "Failed to decode %s scoped PDU : result code %i\n", name, res2);
 		exit(1);
 	}
 
-	pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
 #ifdef DEBUG
 	dump_snmp_pdu(&pdu, 1);
 #endif
@@ -150,7 +148,7 @@ static void test_public_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int offs
 	buf_t buf;
 	init_obuf(&buf, enc_buf, ref_pdu_len);
 
-	int res3 = encode_snmp_scoped_pdu(&scoped_pdu, &buf);
+	int res3 = encode_snmp_scoped_pdu(&pdu.scoped_pdu.decrypted, &buf);
 	if (res3) {
 		fprintf(stderr, "Failed to encode %s scoped PDU : result code %i\n", name, res3);
 		exit(1);
@@ -213,8 +211,7 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 		exit(1);
 	}
 
-	SnmpScopedPDU scoped_pdu;
-	int res2 = process_incoming_pdu(&pdu, &scoped_pdu, &context, time_sync);
+	int res2 = process_incoming_pdu(pdu_copy, ref_pdu_len, &pdu, &context, time_sync);
 	if ((res2 != 0) ^ !valid) {
 		fprintf(stderr, "Failed to process PDU %s : result code %i\n", name, res2);
 		exit(1);
@@ -224,7 +221,6 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 		return;
 	}
 
-	pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
 #ifdef DEBUG
 	dump_snmp_pdu(&pdu, 1);
 #endif
@@ -253,17 +249,17 @@ static void test_private_pdu(const uint8_t *ref_pdu, size_t ref_pdu_len, int off
 			exit(1);
 		}
 
-		SnmpScopedPDU scoped_pdu2;
-		int res5 = process_incoming_pdu(&pdu2, &scoped_pdu2, &context, time_sync);
+		int res5 = process_incoming_pdu(&buf.buffer[buf.pos],
+		    buf.size - buf.pos, &pdu2, &context, time_sync);
 		if (res5 != 0) {
 			fprintf(stderr, "Failed to process encoded PDU %s : result code %i\n", name, res5);
 			exit(1);
 		}
 
-		if (pdu2.security_parameters.authoritative_engine_boots != get_engine_boots()) {
+		if (pdu2.security_params.auth_engine_boots != get_engine_boots()) {
 			fprintf(stderr, "Encoded PDU has invalid engine boot counter\n");
 			exit(1);
-		} else if (pdu2.security_parameters.authoritative_engine_time != get_engine_time()) {
+		} else if (pdu2.security_params.auth_engine_time != get_engine_time()) {
 			fprintf(stderr, "Encoded PDU has invalid engine timestamp\n");
 			exit(1);
 		}
@@ -318,10 +314,8 @@ int main(int argc, char **argv)
 	test_derive_session_key();
 	test_private_pdu(time_discovery_request, sizeof(time_discovery_request), 2, time_discovery_request[1], 2, "time discovery request", 1,
 		"AABBCCDDEEFF", NULL, engine_id, sizeof(engine_id), AUTH_NO_PRIV, 1);
-	test_private_pdu(get_request_invalid, sizeof(get_request_invalid), 3, get_request_invalid[2], 2, "invalid get request", 1,
-		"AABBCCDDEEFF", "0123456789", engine_id, sizeof(engine_id), AUTH_NO_PRIV, 0);
-	test_private_pdu(get_request_invalid, sizeof(get_request_invalid), 3, get_request_invalid[2], 2, "invalid get request", 0,
-		"AABBCCDDEEFF", "0123456789", engine_id, sizeof(engine_id), AUTH_NO_PRIV, 0);
+    test_private_pdu(get_request_invalid, sizeof(get_request_invalid), 3, get_request_invalid[2], 2, "invalid get request", 0,
+        "AABBCCDDEEFF", "0123456789", engine_id, sizeof(engine_id), AUTH_NO_PRIV, 0);
 	test_private_pdu(get_request_valid, sizeof(get_request_valid), 3, get_request_valid[2], 2, "get request", 0,
 		"AABBCCDDEEFF", "0123456789", engine_id, sizeof(engine_id), AUTH_PRIV, 1);
 

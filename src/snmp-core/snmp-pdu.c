@@ -81,108 +81,88 @@ static SnmpPduType get_pdu_type(asn1int_t id)
 
 int decode_snmp_pdu(const asn1raw_t *src, SnmpPDU *pdu)
 {
-    if (src->type != TAG_SEQUENCE) {
+    if (src->type != TAG_SEQUENCE)
         return -1;
-    }
 
     buf_t buf;
     asn1raw_t raw_tlv;
     init_ibuf(&buf, src->value, src->length);
 
     /* check version */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_INTEGER) {
+    if (raw_tlv.type != TAG_INTEGER)
         return PARSE_ERROR;
-    } else if (decode_INTEGER(&raw_tlv) != SNMP_VERSION) {
+    if (decode_INTEGER(&raw_tlv) != SNMP_VERSION)
         return PARSE_ERROR_VERSION;
-    }
 
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_SEQUENCE) {
+    if (raw_tlv.type != TAG_SEQUENCE)
         return PARSE_ERROR;
-    }
 
     buf_t global_data;
     init_ibuf(&global_data, raw_tlv.value, raw_tlv.length);
 
     /* message ID */
-    if (decode_TLV(&raw_tlv, &global_data)) {
+    if (decode_TLV(&raw_tlv, &global_data))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_INTEGER) {
+    if (raw_tlv.type != TAG_INTEGER)
         return PARSE_ERROR;
-    }
     pdu->message_id = decode_INTEGER(&raw_tlv);
 
     /* max message size */
-    if (decode_TLV(&raw_tlv, &global_data)) {
+    if (decode_TLV(&raw_tlv, &global_data))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_INTEGER) {
+    if (raw_tlv.type != TAG_INTEGER)
         return PARSE_ERROR;
-    }
     pdu->max_size = decode_INTEGER(&raw_tlv);
 
     /* message flags */
-    if (decode_TLV(&raw_tlv, &global_data)) {
+    if (decode_TLV(&raw_tlv, &global_data))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_OCTETSTRING) {
+    if (raw_tlv.type != TAG_OCTETSTRING)
         return PARSE_ERROR;
-    } else if (raw_tlv.length != 1) {
+    if (raw_tlv.length != 1)
         return PARSE_ERROR;
-    }
+
     pdu->requires_response = (raw_tlv.value[0] & 0x04) != 0x00;
     pdu->is_encrypted = (raw_tlv.value[0] & 0x02) != 0x00;
     pdu->is_authenticated = (raw_tlv.value[0] & 0x01) != 0x00;
-    if (decode_TLV(&raw_tlv, &global_data)) {
+    if (decode_TLV(&raw_tlv, &global_data))
         return PARSE_ERROR;
-    } else if (raw_tlv.type != TAG_INTEGER) {
+    if (raw_tlv.type != TAG_INTEGER)
         return PARSE_ERROR;
-    } else if (decode_INTEGER(&raw_tlv) != SNMP_SECURITY_MODEL) {
+    if (decode_INTEGER(&raw_tlv) != SNMP_SECURITY_MODEL)
         return PARSE_ERROR_SEC_MODEL;
-    }
 
     /* security parameters */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return PARSE_ERROR;
-    } else if (decode_usm_security_parameters(&raw_tlv,
-            &pdu->security_parameters)) {
+    if (decode_usm_security_parameters(&raw_tlv, &pdu->security_params))
         return PARSE_ERROR;
-    }
 
     /* scoped PDU */
-    pdu->scoped_pdu.encrypted_pdu.data = &buf.buffer[buf.pos];
-    pdu->scoped_pdu.encrypted_pdu.len = buf.size - buf.pos;
-    if (decode_TLV(&raw_tlv, &buf)) {
+    pdu->scoped_pdu.encrypted.data = &buf.buffer[buf.pos];
+    pdu->scoped_pdu.encrypted.len = buf.size - buf.pos;
+    if (decode_TLV(&raw_tlv, &buf))
         return PARSE_ERROR;
-    } else if (buf.pos != buf.size) {
+    if (buf.pos != buf.size)
         return PARSE_ERROR;
-    }
 
     return PARSE_SUCCESS;
 }
 
-int encode_snmp_pdu(const SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu)
+int encode_snmp_pdu(SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu)
 {
     unsigned int mark = dst->pos;
 
     /* scoped PDU */
-    if (dummy_scoped_pdu > 0) {
-        mark = dst->pos + dummy_scoped_pdu;
-    } else {
-        mark = dst->pos;
-        dst->pos -= pdu->scoped_pdu.encrypted_pdu.len;
-        if (dst->pos < 0) {
-            return -1;
-        }
-        memcpy(&dst->buffer[dst->pos], pdu->scoped_pdu.encrypted_pdu.data,
-                pdu->scoped_pdu.encrypted_pdu.len);
-    }
+    mark = dst->pos + dummy_scoped_pdu;
 
     /* security parameters */
-    if (encode_usm_security_parameters(&pdu->security_parameters, dst)) {
+    if (encode_usm_security_parameters(&pdu->security_params, dst))
         return -1;
-    }
 
     /* global message data */
     unsigned global_mark = dst->pos;
@@ -191,138 +171,128 @@ int encode_snmp_pdu(const SnmpPDU *pdu, buf_t *dst, const int dummy_scoped_pdu)
             | ((pdu->is_encrypted != 0) << 1) | (pdu->is_authenticated != 0);
     asn1int_t max_size = pdu->max_size;
     asn1int_t msg_id = pdu->message_id;
-    if (encode_INTEGER(dst, &security_model, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &security_model, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    } else if (encode_OCTET_STRING(dst, &flags, 1)) {
+    if (encode_OCTET_STRING(dst, &flags, 1))
         return -1;
-    } else if (encode_INTEGER(dst, &max_size, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &max_size, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    } else if (encode_INTEGER(dst, &msg_id, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &msg_id, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    } else if (encode_TLV(dst, global_mark, TAG_SEQUENCE, FLAG_STRUCTURED)) {
+    if (encode_TLV(dst, global_mark, TAG_SEQUENCE, FLAG_STRUCTURED))
         return -1;
-    }
 
     /* message version */
     asn1int_t version = SNMP_VERSION;
-    if (encode_INTEGER(dst, &version, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &version, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    }
 
-    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED)) {
+    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED))
         return -1;
-    }
 
     return 0;
 }
 
-int decode_usm_security_parameters(const asn1raw_t *src, SnmpUSMSecurityParameters *params)
+int decode_usm_security_parameters(const asn1raw_t *src,
+        SnmpUSMSecurityParameters *params)
 {
-    if (src->type != TAG_OCTETSTRING) {
+    if (src->type != TAG_OCTETSTRING)
         return -1;
-    }
 
     buf_t buf;
     asn1raw_t raw_val;
     init_ibuf(&buf, src->value, src->length);
 
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_SEQUENCE) {
+    if (raw_val.type != TAG_SEQUENCE)
         return -1;
-    }
 
     init_ibuf(&buf, raw_val.value, raw_val.length);
 
     /* engine ID */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_OCTETSTRING) {
+    if (raw_val.type != TAG_OCTETSTRING)
         return -1;
-    } else if (raw_val.length > MAX_ENGINE_ID_LENGTH) {
+    if (raw_val.length > MAX_ENGINE_ID_LENGTH)
         return -1;
-    }
-    memcpy(params->authoritative_engine_id, raw_val.value, raw_val.length);
-    params->authoritative_engine_id_len = raw_val.length;
+    memcpy(params->auth_engine_id, raw_val.value, raw_val.length);
+    params->auth_engine_id_len = raw_val.length;
 
     /* engine boots */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_INTEGER) {
+    if (raw_val.type != TAG_INTEGER)
         return -1;
-    }
-    params->authoritative_engine_boots = decode_INTEGER(&raw_val);
+    params->auth_engine_boots = decode_INTEGER(&raw_val);
 
     /* engine time */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_INTEGER) {
+    if (raw_val.type != TAG_INTEGER)
         return -1;
-    }
-    params->authoritative_engine_time = decode_INTEGER(&raw_val);
+    params->auth_engine_time = decode_INTEGER(&raw_val);
 
     /* user name */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_OCTETSTRING) {
+    if (raw_val.type != TAG_OCTETSTRING)
         return -1;
-    } else if (raw_val.length >= MAX_USER_NAME_LENGTH) {
+    if (raw_val.length >= MAX_USER_NAME_LENGTH)
         return -1;
-    }
     memcpy(params->user_name, raw_val.value, raw_val.length);
     params->user_name[raw_val.length] = '\0';
 
     /* authentication params */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_OCTETSTRING) {
+    if (raw_val.type != TAG_OCTETSTRING)
         return -1;
-    } else if (raw_val.length > MAX_AUTHENTICATION_PARAMETERS) {
+    if (raw_val.length > MAX_AUTHENTICATION_PARAMETERS)
         return -1;
-    }
-    memcpy(params->authentication_parameters, raw_val.value, raw_val.length);
-    params->authentication_parameters_len = raw_val.length;
+    memcpy(params->auth_param, raw_val.value, raw_val.length);
+    params->auth_param_len = raw_val.length;
+    params->auth_param_offset = raw_val.value;
 
     /* privacy params */
-    if (decode_TLV(&raw_val, &buf)) {
+    if (decode_TLV(&raw_val, &buf))
         return -1;
-    } else if (raw_val.type != TAG_OCTETSTRING) {
+    if (raw_val.type != TAG_OCTETSTRING)
         return -1;
-    } else if (raw_val.length > MAX_PRIVACY_PARAMETERS) {
+    if (raw_val.length > MAX_PRIVACY_PARAMETERS)
         return -1;
-    }
-    memcpy(params->privacy_parameters, raw_val.value, raw_val.length);
-    params->privacy_parameters_len = raw_val.length;
+    memcpy(params->priv_param, raw_val.value, raw_val.length);
+    params->priv_param_len = raw_val.length;
     return 0;
 }
 
-int encode_usm_security_parameters(const SnmpUSMSecurityParameters *params, buf_t *dst)
+int encode_usm_security_parameters(SnmpUSMSecurityParameters *params, buf_t *dst)
 {
     unsigned int mark = dst->pos;
 
-    asn1int_t engine_time = params->authoritative_engine_time;
-    asn1int_t engine_boots = params->authoritative_engine_boots;
+    asn1int_t engine_time = params->auth_engine_time;
+    asn1int_t engine_boots = params->auth_engine_boots;
 
-    if (encode_OCTET_STRING(dst, params->privacy_parameters, params->privacy_parameters_len)) {
+    if (encode_OCTET_STRING(dst, params->priv_param, params->priv_param_len))
         return -1;
-    } else if (encode_OCTET_STRING(dst, params->authentication_parameters,
-            params->authentication_parameters_len)) {
+    params->auth_param_offset = &dst->buffer[dst->pos] - params->auth_param_len;
+    if (encode_OCTET_STRING(dst, params->auth_param, params->auth_param_len))
         return -1;
-    } else if (encode_OCTET_STRING(dst, (unsigned char *) params->user_name,
-            strnlen((char *) params->user_name, MAX_USER_NAME_LENGTH))) {
+    if (encode_OCTET_STRING(dst, (unsigned char *) params->user_name,
+            strnlen((char *) params->user_name, MAX_USER_NAME_LENGTH)))
         return -1;
-    } else if (encode_INTEGER(dst, &engine_time, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &engine_time, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    } else if (encode_INTEGER(dst, &engine_boots, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &engine_boots, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    } else if (encode_OCTET_STRING(dst, params->authoritative_engine_id,
-            params->authoritative_engine_id_len)) {
+    if (encode_OCTET_STRING(dst, params->auth_engine_id,
+            params->auth_engine_id_len))
         return -1;
-    } else if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED)) {
+    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED))
         return -1;
-    } else if (encode_TLV(dst, mark, TAG_OCTETSTRING, FLAG_UNIVERSAL)) {
+    if (encode_TLV(dst, mark, TAG_OCTETSTRING, FLAG_UNIVERSAL))
         return -1;
-    }
 
     return 0;
 }
@@ -338,95 +308,83 @@ int decode_snmp_scoped_pdu(const asn1raw_t *src, SnmpScopedPDU *pdu)
     init_ibuf(&buf, src->value, src->length);
 
     /* context engine ID */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return -1;
-    } else if (raw_tlv.type
-            != TAG_OCTETSTRING|| raw_tlv.length >= MAX_CONTEXT_ENGINE_ID) {
+    if (raw_tlv.type != TAG_OCTETSTRING || raw_tlv.length >= MAX_CONTEXT_ENGINE_ID)
         return -1;
-    }
     memcpy(pdu->context_engine_id, raw_tlv.value, raw_tlv.length);
     pdu->context_engine_id_len = raw_tlv.length;
 
     /* context name */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return -1;
-    } else if (raw_tlv.type
-            != TAG_OCTETSTRING|| raw_tlv.length >= MAX_CONTEXT_ENGINE_NAME) {
+    if (raw_tlv.type != TAG_OCTETSTRING || raw_tlv.length >= MAX_CONTEXT_ENGINE_NAME)
         return -1;
-    }
     memcpy(pdu->context_engine_name, raw_tlv.value, raw_tlv.length);
     pdu->context_engine_name_len = raw_tlv.length;
 
     /* PDU type */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return -1;
-    } else if (buf.pos != buf.size) {
+    if (buf.pos != buf.size)
         return -1;
-    } else if ((pdu->type = get_pdu_type(raw_tlv.type | raw_tlv.flags)) == -1) {
+    if ((pdu->type = get_pdu_type(raw_tlv.type | raw_tlv.flags)) == -1)
         return -1;
-    }
 
     init_ibuf(&buf, raw_tlv.value, raw_tlv.length);
 
     /* request ID */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return -1;
-    } else if (raw_tlv.type != TAG_INTEGER) {
+    if (raw_tlv.type != TAG_INTEGER)
         return -1;
-    }
     pdu->request_id = decode_INTEGER(&raw_tlv);
 
     if (pdu->type == GET_BULK) {
-        if (decode_TLV(&raw_tlv, &buf)) {
+        if (decode_TLV(&raw_tlv, &buf))
             return -1;
-        } else if (raw_tlv.type != TAG_INTEGER) {
+        if (raw_tlv.type != TAG_INTEGER)
             return -1;
-        }
         pdu->non_repeaters = decode_INTEGER(&raw_tlv);
 
-        if (decode_TLV(&raw_tlv, &buf)) {
+        if (decode_TLV(&raw_tlv, &buf))
             return -1;
-        } else if (raw_tlv.type != TAG_INTEGER) {
+        if (raw_tlv.type != TAG_INTEGER)
             return -1;
-        }
         pdu->max_repetitions = decode_INTEGER(&raw_tlv);
     } else {
-        if (decode_TLV(&raw_tlv, &buf)) {
+        if (decode_TLV(&raw_tlv, &buf))
             return -1;
-        } else if (raw_tlv.type != TAG_INTEGER) {
+        if (raw_tlv.type != TAG_INTEGER)
             return -1;
-        } else if ((pdu->error_status = get_error_status(
-                decode_INTEGER(&raw_tlv))) == -1) {
+        if ((pdu->error_status = get_error_status(
+                decode_INTEGER(&raw_tlv))) == -1)
             return -1;
-        }
 
-        if (decode_TLV(&raw_tlv, &buf)) {
+        if (decode_TLV(&raw_tlv, &buf))
             return -1;
-        } else if (raw_tlv.type != TAG_INTEGER) {
+        if (raw_tlv.type != TAG_INTEGER)
             return -1;
-        }
         pdu->error_index = decode_INTEGER(&raw_tlv);
     }
 
     /* variable bindings */
-    if (decode_TLV(&raw_tlv, &buf)) {
+    if (decode_TLV(&raw_tlv, &buf))
         return -1;
-    } else if (buf.pos != buf.size) {
+    if (buf.pos != buf.size)
         return -1;
-    }
 
     init_ibuf(&buf, raw_tlv.value, raw_tlv.length);
     pdu->num_of_bindings = 0;
 
     while (buf.pos < buf.size) {
-        if (pdu->num_of_bindings >= MAX_SNMP_VAR_BINDINGS) {
+        if (pdu->num_of_bindings >= MAX_SNMP_VAR_BINDINGS)
             return -1;
-        } else if (decode_TLV(&raw_tlv, &buf)) {
+        if (decode_TLV(&raw_tlv, &buf))
             return -1;
-        } else if (decode_variable_binding(&raw_tlv,
-                &pdu->bindings[pdu->num_of_bindings++])) {
+        if (decode_variable_binding(&raw_tlv,
+                &pdu->bindings[pdu->num_of_bindings++]))
             return -1;
-        }
     }
 
     return 0;
@@ -442,49 +400,42 @@ int encode_snmp_scoped_pdu(const SnmpScopedPDU *pdu, buf_t *dst)
             return -1;
         }
     }
-    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED)) {
+    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED))
         return -1;
-    }
 
     /* error indication */
     asn1int_t error_index = pdu->error_index;
-    if (encode_INTEGER(dst, &error_index, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &error_index, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    }
 
     asn1int_t error_status = pdu->error_status;
-    if (encode_INTEGER(dst, &error_status, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &error_status, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    }
 
     /* response ID */
     asn1int_t response_id = pdu->request_id;
-    if (encode_INTEGER(dst, &response_id, TAG_INTEGER, FLAG_UNIVERSAL)) {
+    if (encode_INTEGER(dst, &response_id, TAG_INTEGER, FLAG_UNIVERSAL))
         return -1;
-    }
-    if (encode_TLV(dst, mark, 0x3f & pdu->type, FLAG_CONTEXT)) {
+    if (encode_TLV(dst, mark, 0x3f & pdu->type, FLAG_CONTEXT))
         return -1;
-    }
 
     /* context name/id */
     if (encode_OCTET_STRING(dst, pdu->context_engine_name,
-            pdu->context_engine_name_len)) {
+            pdu->context_engine_name_len))
         return -1;
-    } else if (encode_OCTET_STRING(dst, pdu->context_engine_id,
-            pdu->context_engine_id_len)) {
+    if (encode_OCTET_STRING(dst, pdu->context_engine_id,
+            pdu->context_engine_id_len))
         return -1;
-    } else if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED)) {
+    if (encode_TLV(dst, mark, TAG_SEQUENCE, FLAG_STRUCTURED))
         return -1;
-    }
 
     return 0;
 }
 
 SnmpVariableBinding *add_variable_binding(SnmpScopedPDU *pdu)
 {
-    if (pdu->num_of_bindings >= MAX_SNMP_VAR_BINDINGS) {
+    if (pdu->num_of_bindings >= MAX_SNMP_VAR_BINDINGS)
         return NULL;
-    }
 
     return &pdu->bindings[pdu->num_of_bindings++];
 }

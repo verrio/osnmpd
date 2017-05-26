@@ -128,7 +128,7 @@ static void dispatch_notification(void);
 static void discover_engine_id(void);
 static void sync_destination_clock(void);
 static int send_pdu(uint8_t *, size_t);
-static int receive_pdu(SnmpPDU *, SnmpScopedPDU *);
+static int receive_pdu(SnmpPDU *, int);
 static void handle_new_notification(void);
 static void handle_engine_discovery(void);
 static void handle_clock_sync(void);
@@ -373,7 +373,7 @@ static void dispatch_notification(void)
         return;
     }
 
-    /* build notification */
+    /* build notification header */
     notification_ctx.notification.message_id = notification_ctx.retry_count ?
             notification_ctx.msg_id : ++notification_ctx.msg_id;
     notification_ctx.notification.max_size = MAX_SNMP_NOTIFICATION_SIZE;
@@ -382,18 +382,19 @@ static void dispatch_notification(void)
     notification_ctx.notification.is_authenticated =
             notification_ctx.usm_ctx.level > NO_AUTH_NO_PRIV;
     notification_ctx.notification.requires_response = config->confirmed;
-    memcpy(notification_ctx.notification.security_parameters.user_name,
+    memcpy(notification_ctx.notification.security_params.user_name,
             notification_ctx.usm_ctx.user_name, notification_ctx.usm_ctx.user_name_len);
     notification_ctx.notification.
-        security_parameters.user_name[notification_ctx.usm_ctx.user_name_len] = '\0';
-    notification_ctx.notification.security_parameters.privacy_parameters_len = 0;
-    notification_ctx.notification.security_parameters.authentication_parameters_len = 0;
-    notification_ctx.notification.security_parameters.authoritative_engine_boots =
+        security_params.user_name[notification_ctx.usm_ctx.user_name_len] = '\0';
+    notification_ctx.notification.security_params.priv_param_len = 0;
+    notification_ctx.notification.security_params.auth_param_len = 0;
+    notification_ctx.notification.security_params.auth_engine_boots =
             notification_ctx.usm_ctx.level > NO_AUTH_NO_PRIV ?
                     get_notification_boot_count() : 0;
-    notification_ctx.notification.security_parameters.authoritative_engine_time =
+    notification_ctx.notification.security_params.auth_engine_time =
             notification_ctx.usm_ctx.level > NO_AUTH_NO_PRIV ? get_notification_time() : 0;
-    notification_ctx.notification.scoped_pdu.decrypted_pdu = &notification_ctx.content;
+
+    /* build scoped PDU */
     notification_ctx.content.request_id = notification_ctx.request_id++;
     notification_ctx.content.type = config->confirmed ? INFORM : TRAP;
     notification_ctx.content.error_status = NO_ERROR;
@@ -403,20 +404,22 @@ static void dispatch_notification(void)
         memcpy(notification_ctx.content.context_engine_id,
                notification_ctx.engine_id, notification_ctx.engine_id_len);
         notification_ctx.content.context_engine_id_len = notification_ctx.engine_id_len;
-        memcpy(notification_ctx.notification.security_parameters.authoritative_engine_id,
+        memcpy(notification_ctx.notification.security_params.auth_engine_id,
                notification_ctx.engine_id, notification_ctx.engine_id_len);
-        notification_ctx.notification.security_parameters.authoritative_engine_id_len =
+        notification_ctx.notification.security_params.auth_engine_id_len =
                 notification_ctx.engine_id_len;
     } else {
         uint8_t *engine_id;
         notification_ctx.content.context_engine_id_len = get_engine_id(&engine_id);
-        notification_ctx.notification.security_parameters.authoritative_engine_id_len =
+        notification_ctx.notification.security_params.auth_engine_id_len =
                 notification_ctx.content.context_engine_id_len;
         memcpy(notification_ctx.content.context_engine_id, engine_id,
                notification_ctx.content.context_engine_id_len);
-        memcpy(notification_ctx.notification.security_parameters.authoritative_engine_id,
+        memcpy(notification_ctx.notification.security_params.auth_engine_id,
                engine_id, notification_ctx.content.context_engine_id_len);
     }
+    memcpy(GET_SCOPED_PDU(notification_ctx.notification),
+            &notification_ctx.content, sizeof(SnmpScopedPDU));
 
     uint8_t tx_buffer[MAX_SNMP_NOTIFICATION_SIZE];
     buf_t tx_buf;
@@ -450,28 +453,26 @@ static void discover_engine_id(void)
     pdu.is_encrypted = 0;
     pdu.is_authenticated = 0;
     pdu.requires_response = 1;
-    pdu.security_parameters.user_name[0] = '\0';
-    pdu.security_parameters.authoritative_engine_id_len = 0;
-    pdu.security_parameters.privacy_parameters_len = 0;
-    pdu.security_parameters.authentication_parameters_len = 0;
-    pdu.security_parameters.authoritative_engine_boots = 0;
-    pdu.security_parameters.authoritative_engine_time = 0;
-    SnmpScopedPDU scoped_pdu;
-    pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
-    scoped_pdu.request_id = notification_ctx.request_id++;
-    scoped_pdu.type = GET;
-    scoped_pdu.error_status = NO_ERROR;
-    scoped_pdu.error_index = 0;
-    scoped_pdu.context_engine_id_len = 0;
-    scoped_pdu.context_engine_name_len = 0;
-    scoped_pdu.num_of_bindings = 0;
+    pdu.security_params.user_name[0] = '\0';
+    pdu.security_params.auth_engine_id_len = 0;
+    pdu.security_params.priv_param_len = 0;
+    pdu.security_params.auth_param_len = 0;
+    pdu.security_params.auth_engine_boots = 0;
+    pdu.security_params.auth_engine_time = 0;
+    GET_SCOPED_PDU(pdu)->request_id = notification_ctx.request_id++;
+    GET_SCOPED_PDU(pdu)->type = GET;
+    GET_SCOPED_PDU(pdu)->error_status = NO_ERROR;
+    GET_SCOPED_PDU(pdu)->error_index = 0;
+    GET_SCOPED_PDU(pdu)->context_engine_id_len = 0;
+    GET_SCOPED_PDU(pdu)->context_engine_name_len = 0;
+    GET_SCOPED_PDU(pdu)->num_of_bindings = 0;
 
     uint8_t buf[MAX_SNMP_NOTIFICATION_SIZE];
     buf_t tx_buf;
     init_obuf(&tx_buf, buf, sizeof(buf));
 
-    if (encode_snmp_scoped_pdu(&scoped_pdu, &tx_buf)
-            || encode_snmp_pdu(&pdu, &tx_buf, tx_buf.size - tx_buf.pos)) {
+    if (encode_snmp_scoped_pdu(GET_SCOPED_PDU(pdu), &tx_buf) ||
+        encode_snmp_pdu(&pdu, &tx_buf, tx_buf.size - tx_buf.pos)) {
         syslog(LOG_ERR, "failed to marshal engine discovery request");
         enter_wait_for_new_notification(0);
     } else if (send_pdu(&tx_buf.buffer[tx_buf.pos], tx_buf.size - tx_buf.pos)) {
@@ -492,27 +493,25 @@ static void sync_destination_clock(void)
     pdu.is_encrypted = 0;
     pdu.is_authenticated = 1;
     pdu.requires_response = 1;
-    memcpy(pdu.security_parameters.user_name, notification_ctx.usm_ctx.user_name,
+    memcpy(pdu.security_params.user_name, notification_ctx.usm_ctx.user_name,
             notification_ctx.usm_ctx.user_name_len);
-    pdu.security_parameters.user_name[notification_ctx.usm_ctx.user_name_len] = '\0';
-    pdu.security_parameters.privacy_parameters_len = 0;
-    pdu.security_parameters.authentication_parameters_len = 0;
-    pdu.security_parameters.authoritative_engine_boots = 0;
-    pdu.security_parameters.authoritative_engine_time = 0;
-    memcpy(pdu.security_parameters.authoritative_engine_id,
+    pdu.security_params.user_name[notification_ctx.usm_ctx.user_name_len] = '\0';
+    pdu.security_params.priv_param_len = 0;
+    pdu.security_params.auth_param_len = 0;
+    pdu.security_params.auth_engine_boots = 0;
+    pdu.security_params.auth_engine_time = 0;
+    memcpy(pdu.security_params.auth_engine_id,
        notification_ctx.engine_id, notification_ctx.engine_id_len);
-    pdu.security_parameters.authoritative_engine_id_len = notification_ctx.engine_id_len;
-    SnmpScopedPDU scoped_pdu;
-    pdu.scoped_pdu.decrypted_pdu = &scoped_pdu;
-    scoped_pdu.request_id = notification_ctx.request_id++;
-    scoped_pdu.type = GET;
-    scoped_pdu.error_status = NO_ERROR;
-    scoped_pdu.error_index = 0;
-    memcpy(scoped_pdu.context_engine_id, notification_ctx.engine_id,
+    pdu.security_params.auth_engine_id_len = notification_ctx.engine_id_len;
+    GET_SCOPED_PDU(pdu)->request_id = notification_ctx.request_id++;
+    GET_SCOPED_PDU(pdu)->type = GET;
+    GET_SCOPED_PDU(pdu)->error_status = NO_ERROR;
+    GET_SCOPED_PDU(pdu)->error_index = 0;
+    memcpy(GET_SCOPED_PDU(pdu)->context_engine_id, notification_ctx.engine_id,
             notification_ctx.engine_id_len);
-    scoped_pdu.context_engine_id_len = notification_ctx.engine_id_len;
-    scoped_pdu.context_engine_name_len = 0;
-    scoped_pdu.num_of_bindings = 0;
+    GET_SCOPED_PDU(pdu)->context_engine_id_len = notification_ctx.engine_id_len;
+    GET_SCOPED_PDU(pdu)->context_engine_name_len = 0;
+    GET_SCOPED_PDU(pdu)->num_of_bindings = 0;
 
     uint8_t buf[MAX_SNMP_NOTIFICATION_SIZE];
     buf_t tx_buf;
@@ -613,7 +612,7 @@ static int send_pdu(uint8_t *pdu, size_t pdu_len)
     return -1;
 }
 
-static int receive_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu)
+static int receive_pdu(SnmpPDU *pdu, int process_sec)
 {
     uint8_t rx_buf[MAX_SNMP_NOTIFICATION_SIZE];
     ssize_t rx_size = recvfrom(notification_ctx.sock, rx_buf, sizeof(rx_buf),
@@ -640,10 +639,16 @@ static int receive_pdu(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu)
     } else if (decode_snmp_pdu(&pdu_tlv, pdu)) {
         syslog(LOG_WARNING, "failed to decode incoming notification response");
         return -1;
-    } else if (scoped_pdu != NULL
-            && process_incoming_pdu(pdu, scoped_pdu, &notification_ctx.usm_ctx, 0)) {
-        syslog(LOG_WARNING, "failed to process incoming notification response");
-        return -1;
+    } else if (process_sec) {
+        SnmpUSMContext *usm = &notification_ctx.usm_ctx;
+        if (strncmp(pdu->security_params.user_name, usm->user_name, usm->user_name_len)) {
+            syslog(LOG_WARNING, "received notification response for invalid user %s",
+                pdu->security_params.user_name);
+            return -1;
+        } else if (process_incoming_pdu(rx_buf, rx_size, pdu, usm, 0)) {
+            syslog(LOG_WARNING, "failed to process incoming notification response");
+            return -1;
+        }
     }
 
     return 0;
@@ -681,24 +686,24 @@ static void handle_new_notification(void)
 static void handle_engine_discovery(void)
 {
     SnmpPDU pdu;
-    if (receive_pdu(&pdu, NULL)) {
+    if (receive_pdu(&pdu, 0)) {
         syslog(LOG_WARNING, "engine discovery failed");
         goto retry;
     }
 
-    if (pdu.security_parameters.authoritative_engine_id_len > MAX_ENGINE_ID_LENGTH) {
+    if (pdu.security_params.auth_engine_id_len > MAX_ENGINE_ID_LENGTH) {
         syslog(LOG_WARNING, "received engine id too big");
         goto retry;
     }
 
     notification_ctx.engine_id = malloc(sizeof(uint8_t) *
-            pdu.security_parameters.authoritative_engine_id_len);
+            pdu.security_params.auth_engine_id_len);
     if (notification_ctx.engine_id == NULL) {
         goto retry;
     }
-    memcpy(notification_ctx.engine_id, pdu.security_parameters.authoritative_engine_id,
-        pdu.security_parameters.authoritative_engine_id_len);
-    notification_ctx.engine_id_len = pdu.security_parameters.authoritative_engine_id_len;
+    memcpy(notification_ctx.engine_id, pdu.security_params.auth_engine_id,
+        pdu.security_params.auth_engine_id_len);
+    notification_ctx.engine_id_len = pdu.security_params.auth_engine_id_len;
 
     char engine_id_dump[3 + (MAX_ENGINE_ID_LENGTH << 1)];
     if (to_hex(notification_ctx.engine_id, notification_ctx.engine_id_len,
@@ -733,17 +738,17 @@ static void handle_clock_sync(void)
     /* you'd expect an authentication tag in the response as well,
      * but apparently not all SNMP clients do this, so we can't verify the given parameters...
      */
-    if (receive_pdu(&pdu, NULL)
-        || (pdu.security_parameters.authoritative_engine_boots == 0
-        && pdu.security_parameters.authoritative_engine_time == 0)) {
+    if (receive_pdu(&pdu, 0)
+        || (pdu.security_params.auth_engine_boots == 0
+        && pdu.security_params.auth_engine_time == 0)) {
         syslog(LOG_WARNING, "clock sync failed");
         enter_wait_for_retry();
     } else {
         notification_ctx.retry_count = 0;
         notification_ctx.boot_count =
-                pdu.security_parameters.authoritative_engine_boots;
+                pdu.security_params.auth_engine_boots;
         notification_ctx.time_deviation =
-                pdu.security_parameters.authoritative_engine_time - get_uptime();
+                pdu.security_params.auth_engine_time - get_uptime();
         dispatch_notification();
     }
 }
@@ -751,27 +756,28 @@ static void handle_clock_sync(void)
 static void handle_notification_confirmation(void)
 {
     SnmpPDU pdu;
-    SnmpScopedPDU scoped_pdu;
 
-    if (receive_pdu(&pdu, &scoped_pdu)) {
+    if (receive_pdu(&pdu, 1)) {
         syslog(LOG_WARNING, "did not receive valid notification confirmation in time");
         enter_wait_for_retry();
-    } else if (scoped_pdu.type != RESPONSE || scoped_pdu.error_status != NO_ERROR
-            || scoped_pdu.error_index != 0) {
-        syslog(LOG_WARNING, "received confirmation with error status %u, index %u",
-            scoped_pdu.error_status, scoped_pdu.error_index);
-        if (notification_ctx.engine_id_len !=
-            pdu.security_parameters.authoritative_engine_id_len
-            || memcmp(notification_ctx.engine_id,
-                    pdu.security_parameters.authoritative_engine_id,
-                    notification_ctx.engine_id_len)) {
-            free(notification_ctx.engine_id);
-            notification_ctx.engine_id = NULL;
-            notification_ctx.engine_id_len = 0;
-        }
-        enter_wait_for_retry();
     } else {
-        enter_wait_for_new_notification(0);
+        if (GET_SCOPED_PDU(pdu)->type != RESPONSE || GET_SCOPED_PDU(pdu)->error_status != NO_ERROR
+                || GET_SCOPED_PDU(pdu)->error_index != 0) {
+            syslog(LOG_WARNING, "received confirmation with error status %u, index %u",
+                GET_SCOPED_PDU(pdu)->error_status, GET_SCOPED_PDU(pdu)->error_index);
+            if (notification_ctx.engine_id_len !=
+                pdu.security_params.auth_engine_id_len
+                || memcmp(notification_ctx.engine_id,
+                        pdu.security_params.auth_engine_id,
+                        notification_ctx.engine_id_len)) {
+                free(notification_ctx.engine_id);
+                notification_ctx.engine_id = NULL;
+                notification_ctx.engine_id_len = 0;
+            }
+            enter_wait_for_retry();
+        } else {
+            enter_wait_for_new_notification(0);
+        }
     }
 }
 

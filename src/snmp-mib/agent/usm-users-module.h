@@ -32,30 +32,14 @@
  */
 
 /**
- * get_user_row - returns row index for the given row identifier
+ * get_user_row - returns user belonging to the given row identifier
  *
  * @row	     IN - row identifier
  * @row_len	 IN - length of row identifier
  * @next_row IN - return row following the given row identifier
  * @return row index, or -1 if no match found.
  */
-int get_user_row(SubOID *row, size_t row_len, int next_row);
-
-/**
- * get_row_entry - returns user configuration for given row index.
- *
- * @row	IN - row index
- * @return user configuration for row, or NULL if not available.
- */
-UserConfiguration *get_row_entry(int row);
-
-/**
- * get_row_user_name - returns the row's user identifier for a given row
- *
- * @row	IN - row index
- * @return row's user identifier, or NULL if not available.
- */
-uint8_t *get_row_user_name(int row);
+UserConfiguration *get_user_row(SubOID *row, size_t row_len, int next_row);
 
 /**
  * init_usm_users_module - creates and initialises a new USM users module.

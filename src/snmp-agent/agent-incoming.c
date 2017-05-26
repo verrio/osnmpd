@@ -70,10 +70,18 @@ struct in6_pktinfo {
 /* OID prefix for public accessible subtree */
 static SubOID public_prefix[] = { SNMP_OID_SYSTEM_MIB };
 
-/* OID prefix for key change subtree */
+/* OID prefixes for security changes */
 static OID dh_prefix = {
     .subid = { SNMP_OID_USM_DH },
     .len = OID_SEQ_LENGTH(SNMP_OID_USM_DH)
+};
+static OID usm_prefix = {
+    .subid = { SNMP_OID_USM_MIB },
+    .len = OID_SEQ_LENGTH(SNMP_OID_USM_MIB)
+};
+static OID vacm_prefix = {
+    .subid = { SNMP_OID_VACM },
+    .len = OID_SEQ_LENGTH(SNMP_OID_VACM)
 };
 
 /* get-bulk limits */
@@ -96,20 +104,21 @@ static int allowed_interface(unsigned int);
 static int validate_pdu_header(SnmpPDU *, SnmpUserSlot *);
 static int is_authenticated_get(SnmpUserSlot, OID *);
 static int is_authenticated_set(SnmpUserSlot, OID *);
-static int is_discovery_request(SnmpPDU *, SnmpScopedPDU *);
+static int is_discovery_request(SnmpPDU *);
 static int is_time_sync_request(SnmpPDU *);
-static int handle_decoded_request(SnmpPDU *, buf_t *, int *);
-static int handle_scoped_pdu(SnmpUserSlot, SnmpPDU *, SnmpScopedPDU *, buf_t *, int);
-static int handle_get_request(SnmpUserSlot, SnmpPDU *, SnmpScopedPDU *, buf_t *,
+static int handle_decoded_request(uint8_t *, size_t, SnmpPDU *, buf_t *, int *);
+static int handle_scoped_pdu(SnmpUserSlot, SnmpPDU *, buf_t *, int);
+static int handle_get_request(SnmpUserSlot, SnmpPDU *, buf_t *,
         int, int, int, int);
-static int handle_set_request(SnmpUserSlot, SnmpPDU *, SnmpScopedPDU *, buf_t *, int);
-static int generate_discovery_response(SnmpPDU *, SnmpScopedPDU *, buf_t *);
-static int generate_time_sync_response(SnmpUserSlot, SnmpPDU *, SnmpScopedPDU *, buf_t *);
-static int generate_security_error_response(SnmpUserSlot, SnmpPDU *, buf_t *, int, int *);
+static int handle_set_request(SnmpUserSlot, SnmpPDU *, buf_t *, int);
+static int generate_discovery_response(SnmpPDU *, buf_t *);
+static int generate_time_sync_response(SnmpUserSlot, SnmpPDU *, buf_t *);
+static int generate_security_error_response(SnmpUserSlot, SnmpPDU *,
+        buf_t *, int, int *);
 static int generate_error_response(SnmpUserSlot, SnmpPduType, SnmpErrorStatus, int,
-        SnmpPDU *, SnmpScopedPDU *, buf_t *);
+        SnmpPDU *, int, buf_t *);
 static int build_response_pdu(SnmpUserSlot, SnmpPDU *, buf_t *, int);
-static void fill_security_header(SnmpPDU *);
+static void fill_security_header(SnmpUserSlot, SnmpPDU *);
 static void fill_context_header(SnmpScopedPDU *);
 static void release_bindings(SnmpScopedPDU *);
 static void increment_incoming_pdu_counter(SnmpScopedPDU *);
@@ -161,7 +170,8 @@ void handle_request(void)
     ssize_t rx_size = recvmsg(udp_socket_descriptor, &message, 0);
     if (rx_size < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            syslog(LOG_WARNING, "failed to receive incoming SNMP request : %s", strerror(errno));
+            syslog(LOG_WARNING, "failed to receive incoming SNMP request : %s",
+                strerror(errno));
         }
         return;
     }
@@ -232,7 +242,7 @@ void handle_request(void)
     buf_t output_buf;
     int auth_trap = 0;
     init_obuf(&output_buf, tx_buf, sizeof(tx_buf));
-    if (handle_decoded_request(&pdu, &output_buf, &auth_trap)) {
+    if (handle_decoded_request(rx_buf, rx_size, &pdu, &output_buf, &auth_trap)) {
         get_statistics()->snmp_silent_drops++;
         return;
     }
@@ -275,10 +285,9 @@ static int allowed_interface(unsigned int iface)
     return 1;
 }
 
-static int handle_decoded_request(SnmpPDU *pdu, buf_t *output_buf,
-        int *auth_trap)
+static int handle_decoded_request(uint8_t *input_buf, size_t input_len,
+        SnmpPDU *pdu, buf_t *output_buf, int *auth_trap)
 {
-    SnmpScopedPDU scoped_pdu;
     SnmpUserSlot user = -1;
     int user_found;
     int sec_result;
@@ -287,47 +296,46 @@ static int handle_decoded_request(SnmpPDU *pdu, buf_t *output_buf,
         syslog(LOG_WARNING, "encryption without authentication not allowed");
         /* seems to be the only case where incrementing the counter is allowed by RFC 3412 */
         get_statistics()->snmp_invalid_msgs++;
-        return generate_error_response(user, REPORT, GENERAL_ERROR, 0, pdu, NULL, output_buf);
-    } else if (is_discovery_request(pdu, &scoped_pdu)) {
-        increment_incoming_pdu_counter(&scoped_pdu);
-        return generate_discovery_response(pdu, &scoped_pdu, output_buf);
+        return generate_error_response(user, REPORT, GENERAL_ERROR, 0, pdu, 0, output_buf);
+    } else if (is_discovery_request(pdu)) {
+        increment_incoming_pdu_counter(&pdu->scoped_pdu.decrypted);
+        return generate_discovery_response(pdu, output_buf);
     } else if ((user_found = validate_pdu_header(pdu, &user))) {
         return generate_error_response(user, RESPONSE,
-                user_found == -2 ? NO_SUCH_NAME : GENERAL_ERROR, 0, pdu, NULL,
-                output_buf);
+                user_found == -2 ? NO_SUCH_NAME : GENERAL_ERROR,
+                0, pdu, 0, output_buf);
     } else if (is_time_sync_request(pdu)) {
-        if ((sec_result = process_incoming_pdu(pdu, &scoped_pdu,
+        if ((sec_result = process_incoming_pdu(input_buf, input_len, pdu,
                 &usm_context[user], 1)) == PROCESSING_NO_ERROR) {
-            increment_incoming_pdu_counter(&scoped_pdu);
-            return generate_time_sync_response(user, pdu, &scoped_pdu, output_buf);
+            increment_incoming_pdu_counter(&pdu->scoped_pdu.decrypted);
+            return generate_time_sync_response(user, pdu, output_buf);
         } else {
             return generate_security_error_response(user, pdu, output_buf,
                 sec_result, auth_trap);
         }
-    } else if ((sec_result = process_incoming_pdu(pdu, &scoped_pdu,
+    } else if ((sec_result = process_incoming_pdu(input_buf, input_len, pdu,
             &usm_context[user], 0)) != PROCESSING_NO_ERROR) {
-        return generate_security_error_response(user, pdu, output_buf, sec_result, auth_trap);
+        return generate_security_error_response(user, pdu,
+            output_buf, sec_result, auth_trap);
     }
 
-    increment_incoming_pdu_counter(&scoped_pdu);
+    increment_incoming_pdu_counter(&pdu->scoped_pdu.decrypted);
     int max_size = min(MAX_PDU_SIZE, pdu->max_size);
-    pdu->scoped_pdu.decrypted_pdu = &scoped_pdu;
     pdu->max_size = MAX_PDU_SIZE;
-    pdu->requires_response = 0;
-    fill_security_header(pdu);
+    fill_security_header(user, pdu);
 
-    return handle_scoped_pdu(user, pdu, &scoped_pdu, output_buf, max_size);
+    return handle_scoped_pdu(user, pdu, output_buf, max_size);
 }
 
 static int validate_pdu_header(SnmpPDU *pdu, SnmpUserSlot *user)
 {
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
-    if (engine_id_len != pdu->security_parameters.authoritative_engine_id_len
-        || memcmp(engine_id, pdu->security_parameters.authoritative_engine_id, engine_id_len)) {
+    if (engine_id_len != pdu->security_params.auth_engine_id_len
+        || memcmp(engine_id, pdu->security_params.auth_engine_id, engine_id_len)) {
         char engine_id_hex[3 + (MAX_ENGINE_ID_LENGTH << 1)];
-        if (to_hex(pdu->security_parameters.authoritative_engine_id,
-                pdu->security_parameters.authoritative_engine_id_len,
+        if (to_hex(pdu->security_params.auth_engine_id,
+                pdu->security_params.auth_engine_id_len,
                 engine_id_hex, sizeof(engine_id_hex))) {
             syslog(LOG_WARNING, "received request for unknown engine %s", engine_id_hex);
         }
@@ -336,29 +344,28 @@ static int validate_pdu_header(SnmpPDU *pdu, SnmpUserSlot *user)
     }
 
     for (int i = 0; i < NUMBER_OF_USER_SLOTS; i++) {
-        if (!user_enabled[i]) {
+        if (!user_enabled[i])
             continue;
-        } else if (usm_context[i].user_name_len != strlen(pdu->security_parameters.user_name)) {
+        if (usm_context[i].user_name_len != strlen(pdu->security_params.user_name))
             continue;
-        } else if (memcmp(usm_context[i].user_name, pdu->security_parameters.user_name,
-                usm_context[i].user_name_len)) {
+        if (memcmp(usm_context[i].user_name, pdu->security_params.user_name,
+                usm_context[i].user_name_len))
             continue;
-        } else {
-            *user = i;
-            return 0;
-        }
+        *user = i;
+        return 0;
     }
 
     syslog(LOG_WARNING, "received request for unknown user %s",
-            pdu->security_parameters.user_name);
+            pdu->security_params.user_name);
     get_statistics()->usm_stats_unknown_user_names++;
 
     return -2;
 }
 
 static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
-        SnmpScopedPDU *scoped_pdu, buf_t *output_buf, int max_size)
+        buf_t *output_buf, int max_size)
 {
+    SnmpScopedPDU *scoped_pdu = GET_SCOPED_PDU(*pdu);
     uint8_t *engine_id;
     size_t engine_id_len = get_engine_id(&engine_id);
     if (engine_id_len != scoped_pdu->context_engine_id_len
@@ -366,11 +373,12 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         char engine_id_hex[3 + (MAX_ENGINE_ID_LENGTH << 1)];
         if (to_hex(scoped_pdu->context_engine_id, scoped_pdu->context_engine_id_len,
                 engine_id_hex, sizeof(engine_id_hex))) {
-            syslog(LOG_WARNING, "received request for unknown PDU handler %s", engine_id_hex);
+            syslog(LOG_WARNING, "received request for unknown PDU handler %s",
+                engine_id_hex);
         }
         get_statistics()->snmp_unknown_pdu_handlers++;
         return generate_error_response(user, RESPONSE,
-            GENERAL_ERROR, 0, pdu, scoped_pdu, output_buf);
+            GENERAL_ERROR, 0, pdu, 1, output_buf);
     }
 
     /* accept all context names, since not all clients
@@ -380,73 +388,76 @@ static int handle_scoped_pdu(SnmpUserSlot user, SnmpPDU *pdu,
         case GET: {
             increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
-                return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
-                        pdu, scoped_pdu, output_buf);
+                return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                    0, pdu, 1, output_buf);
             }
 
-            return handle_get_request(user, pdu, scoped_pdu, output_buf, max_size,
-                    0, 0, 1);
+            return handle_get_request(user, pdu, output_buf, max_size, 0, 0, 1);
         }
 
         case GET_NEXT: {
             increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
                 return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
-                        pdu, scoped_pdu, output_buf);
+                    pdu, 1, output_buf);
             }
 
-            return handle_get_request(user, pdu, scoped_pdu, output_buf, max_size,
-                    1, 0, 1);
+            return handle_get_request(user, pdu, output_buf, max_size, 1, 0, 1);
         }
 
         case GET_BULK: {
             if (scoped_pdu->non_repeaters > scoped_pdu->num_of_bindings
                     || scoped_pdu->max_repetitions > MAX_REPEAT) {
-                return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
-                        pdu, scoped_pdu, output_buf);
+                return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                    0, pdu, 1, output_buf);
             }
 
-            return handle_get_request(user, pdu, scoped_pdu, output_buf, max_size,
+            return handle_get_request(user, pdu, output_buf, max_size,
                     1, scoped_pdu->non_repeaters, scoped_pdu->max_repetitions);
         }
 
         case SET: {
             increment_incoming_error_counter(scoped_pdu);
             if (scoped_pdu->error_status != NO_ERROR || scoped_pdu->error_index != 0) {
-                return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0,
-                        pdu, scoped_pdu, output_buf);
+                return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                    0, pdu, 1, output_buf);
             }
 
-            return handle_set_request(user, pdu, scoped_pdu, output_buf, max_size);
+            return handle_set_request(user, pdu, output_buf, max_size);
         }
 
         default: {
             increment_incoming_error_counter(scoped_pdu);
-            return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
-                    scoped_pdu, output_buf);
+            return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                    0, pdu, 1, output_buf);
         }
     }
 }
 
 static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
-        SnmpScopedPDU *scoped_pdu, buf_t *output_buf, int max_size, int next,
-        int offset, int limit)
+        buf_t *output_buf, int max_size, int next, int offset, int limit)
 {
-    SnmpScopedPDU response_scoped_pdu;
-    fill_context_header(&response_scoped_pdu);
-    response_scoped_pdu.request_id = scoped_pdu->request_id;
-    response_scoped_pdu.type = RESPONSE;
-    response_scoped_pdu.error_status = NO_ERROR;
-    response_scoped_pdu.error_index = 0;
-    response_scoped_pdu.num_of_bindings = 0;
+    SnmpScopedPDU *scoped_pdu = GET_SCOPED_PDU(*pdu);
 
-    for (int i = 0; i < scoped_pdu->num_of_bindings; i++) {
-        if (scoped_pdu->bindings[i].type != SMI_TYPE_NULL) {
+    /* buffer request */
+    size_t req_len = scoped_pdu->num_of_bindings;
+    SnmpVariableBinding req[MAX_SNMP_VAR_BINDINGS];
+    memcpy(req, scoped_pdu->bindings, sizeof(SnmpVariableBinding) * req_len);
+
+    fill_context_header(scoped_pdu);
+    scoped_pdu->type = RESPONSE;
+    scoped_pdu->error_status = NO_ERROR;
+    scoped_pdu->error_index = 0;
+    scoped_pdu->num_of_bindings = 0;
+
+    for (int i = 0; i < req_len; i++) {
+        if (req[i].type != SMI_TYPE_NULL) {
             get_statistics()->snmp_in_bad_values++;
             get_statistics()->snmp_out_get_responses++;
-            release_bindings(&response_scoped_pdu);
-            return generate_error_response(user, RESPONSE, GENERAL_ERROR, i + 1,
-                    pdu, scoped_pdu, output_buf);
+            release_bindings(scoped_pdu);
+            scoped_pdu->num_of_bindings = req_len;
+            return generate_error_response(user, RESPONSE, GENERAL_ERROR,
+                i + 1, pdu, 1, output_buf);
         }
 
         int max_repeat = i < offset ? 1 : limit;
@@ -454,21 +465,20 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
         SnmpVariableBinding *previous_binding = NULL;
 
         for (int j = 0; j < max_repeat; j++) {
-            SnmpVariableBinding *binding =
-                add_variable_binding(&response_scoped_pdu);
+            SnmpVariableBinding *binding = add_variable_binding(scoped_pdu);
 
             if (binding == NULL) {
                 get_statistics()->snmp_out_get_responses++;
-                release_bindings(&response_scoped_pdu);
-                return generate_error_response(user, RESPONSE, TOO_BIG, i + 1,
-                        pdu, scoped_pdu, output_buf);
+                release_bindings(scoped_pdu);
+                scoped_pdu->num_of_bindings = req_len;
+                return generate_error_response(user, RESPONSE, TOO_BIG,
+                    i + 1, pdu, 1, output_buf);
             }
 
             if (previous_binding != NULL) {
                 memcpy(&binding->oid, &previous_binding->oid, sizeof(OID));
             } else {
-                memcpy(&binding->oid, &scoped_pdu->bindings[i].oid,
-                        sizeof(OID));
+                memcpy(&binding->oid, &req[i].oid, sizeof(OID));
             }
             binding->type = SMI_TYPE_NULL;
             SnmpErrorStatus status = next ?
@@ -476,15 +486,17 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
 
             if (status != NO_ERROR) {
                 get_statistics()->snmp_out_get_responses++;
-                release_bindings(&response_scoped_pdu);
-                return generate_error_response(user, RESPONSE, status, i + 1,
-                        pdu, scoped_pdu, output_buf);
+                release_bindings(scoped_pdu);
+                scoped_pdu->num_of_bindings = req_len;
+                return generate_error_response(user, RESPONSE, status,
+                    i + 1, pdu, 1, output_buf);
             } else if (is_authenticated_get(user, &binding->oid)) {
                 get_statistics()->snmp_in_bad_community_uses++;
                 get_statistics()->snmp_out_get_responses++;
-                release_bindings(&response_scoped_pdu);
+                release_bindings(scoped_pdu);
+                scoped_pdu->num_of_bindings = req_len;
                 return generate_error_response(user, RESPONSE, NO_ACCESS,
-                        i + 1, pdu, scoped_pdu, output_buf);
+                    i + 1, pdu, 1, output_buf);
             }
 
             if (binding->type & 0x80) {
@@ -499,22 +511,23 @@ static int handle_get_request(SnmpUserSlot user, SnmpPDU *pdu,
     }
 
     get_statistics()->snmp_out_get_responses++;
-    pdu->scoped_pdu.decrypted_pdu = &response_scoped_pdu;
-    size_t orig_num_bindings = response_scoped_pdu.num_of_bindings;
+    size_t orig_num_bindings = scoped_pdu->num_of_bindings;
     int ret = build_response_pdu(user, pdu, output_buf, max_size);
-    size_t new_num_bindings = response_scoped_pdu.num_of_bindings;
-    response_scoped_pdu.num_of_bindings = orig_num_bindings;
-    release_bindings(&response_scoped_pdu);
-    if (response_scoped_pdu.error_status == TOO_BIG && limit == 1) {
-        return generate_error_response(user, RESPONSE, TOO_BIG, new_num_bindings,
-            pdu, scoped_pdu, output_buf);
+    size_t new_num_bindings = scoped_pdu->num_of_bindings;
+    scoped_pdu->num_of_bindings = orig_num_bindings;
+    release_bindings(scoped_pdu);
+    if (scoped_pdu->error_status == TOO_BIG && limit < 2) {
+        return generate_error_response(user, RESPONSE, TOO_BIG,
+            new_num_bindings, pdu, 1, output_buf);
     }
+
     return ret;
 }
 
 static int handle_set_request(SnmpUserSlot user, SnmpPDU *pdu,
-        SnmpScopedPDU *scoped_pdu, buf_t *output_buf, int max_size)
+        buf_t *output_buf, int max_size)
 {
+    SnmpScopedPDU *scoped_pdu = GET_SCOPED_PDU(*pdu);
     fill_context_header(scoped_pdu);
     scoped_pdu->type = RESPONSE;
 
@@ -523,15 +536,15 @@ static int handle_set_request(SnmpUserSlot user, SnmpPDU *pdu,
         if (is_authenticated_set(user, &scoped_pdu->bindings[i].oid)) {
             get_statistics()->snmp_in_bad_community_uses++;
             get_statistics()->snmp_out_get_responses++;
-            return generate_error_response(user, RESPONSE, NO_ACCESS, i + 1, pdu,
-                    scoped_pdu, output_buf);
+            return generate_error_response(user, RESPONSE, NO_ACCESS,
+                i + 1, pdu, 1, output_buf);
         }
 
         SnmpErrorStatus status = mib_set_entry(&scoped_pdu->bindings[i], 1);
         if (status != NO_ERROR) {
             get_statistics()->snmp_out_get_responses++;
-            return generate_error_response(user, RESPONSE, status, i + 1, pdu,
-                    scoped_pdu, output_buf);
+            return generate_error_response(user, RESPONSE, status,
+                i + 1, pdu, 1, output_buf);
         }
     }
 
@@ -541,8 +554,8 @@ static int handle_set_request(SnmpUserSlot user, SnmpPDU *pdu,
         if (status != NO_ERROR) {
             syslog(LOG_WARNING, "failed to execute set : return code %u", status);
             get_statistics()->snmp_out_get_responses++;
-            return generate_error_response(user, RESPONSE, UNDO_FAILED, i + 1,
-                    pdu, scoped_pdu, output_buf);
+            return generate_error_response(user, RESPONSE, UNDO_FAILED,
+                i + 1, pdu, 1, output_buf);
         }
     }
 
@@ -553,16 +566,16 @@ static int handle_set_request(SnmpUserSlot user, SnmpPDU *pdu,
 static void release_bindings(SnmpScopedPDU *scoped_pdu)
 {
     for (int i = 0; i < scoped_pdu->num_of_bindings; i++) {
-        if ((scoped_pdu->bindings[i].type == SMI_TYPE_OCTET_STRING
-                || scoped_pdu->bindings[i].type == SMI_TYPE_OPAQUE)) {
+        if (scoped_pdu->bindings[i].type == SMI_TYPE_OCTET_STRING ||
+            scoped_pdu->bindings[i].type == SMI_TYPE_OPAQUE)
             free(scoped_pdu->bindings[i].value.octet_string.octets);
-        }
+        scoped_pdu->bindings[i].type = SMI_TYPE_NULL;
     }
 }
 
 static int is_authenticated_get(SnmpUserSlot user, OID *oid)
 {
-    //TODO provide fine-grained access control
+    /* TODO provide fine-grained access control */
     if (user == USER_PUBLIC) {
         if (oid->len < OID_LENGTH(public_prefix)) {
             return -1;
@@ -577,21 +590,24 @@ static int is_authenticated_get(SnmpUserSlot user, OID *oid)
 
 static int is_authenticated_set(SnmpUserSlot user, OID *oid)
 {
-    //TODO provide fine-grained access control
+    /* TODO provide fine-grained access control */
     if (user == USER_ADMIN)
         return 0;
 
-    /* only admin user is allowed to change keys */
-    if (user == USER_READ_WRITE && prefix_compare_OID(&dh_prefix, oid))
+    /* only admin user is allowed to change security settings */
+    if (user == USER_READ_WRITE &&
+        prefix_compare_OID(&dh_prefix, oid) &&
+        prefix_compare_OID(&usm_prefix, oid) &&
+        prefix_compare_OID(&vacm_prefix, oid))
         return 0;
 
     return -1;
 }
 
-static int is_discovery_request(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu)
+static int is_discovery_request(SnmpPDU *pdu)
 {
     /* engineID should be empty */
-    if (pdu->security_parameters.authoritative_engine_id_len > 0) {
+    if (pdu->security_params.auth_engine_id_len > 0) {
         return 0;
     }
 
@@ -605,15 +621,16 @@ static int is_discovery_request(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu)
 
     /* should be a read class */
     buf_t buf;
-    init_ibuf(&buf, pdu->scoped_pdu.encrypted_pdu.data,
-            pdu->scoped_pdu.encrypted_pdu.len);
+    init_ibuf(&buf, pdu->scoped_pdu.encrypted.data, pdu->scoped_pdu.encrypted.len);
     asn1raw_t payload;
-    if (decode_TLV(&payload, &buf) || decode_snmp_scoped_pdu(&payload, scoped_pdu)) {
+    if (decode_TLV(&payload, &buf) ||
+        decode_snmp_scoped_pdu(&payload, GET_SCOPED_PDU(*pdu))) {
         syslog(LOG_WARNING, "unencrypted request with invalid scoped PDU");
         get_statistics()->snmp_invalid_msgs++;
         return 0;
-    } else if (scoped_pdu->type != GET && scoped_pdu->type != GET_NEXT
-            && scoped_pdu->type != GET_BULK) {
+    } else if (pdu->scoped_pdu.decrypted.type != GET
+            && pdu->scoped_pdu.decrypted.type != GET_NEXT
+            && pdu->scoped_pdu.decrypted.type != GET_BULK) {
         return 0;
     }
 
@@ -624,54 +641,55 @@ static int is_time_sync_request(SnmpPDU *pdu)
 {
     if (!pdu->is_authenticated) {
         return 0;
-    } else if (pdu->security_parameters.authoritative_engine_boots != 0) {
+    } else if (pdu->security_params.auth_engine_boots != 0) {
         return 0;
-    } else if (pdu->security_parameters.authoritative_engine_time != 0) {
+    } else if (pdu->security_params.auth_engine_time != 0) {
         return 0;
     }
-
     return 1;
 }
 
-static int generate_discovery_response(SnmpPDU *pdu, SnmpScopedPDU *scoped_pdu,
-        buf_t *output_buf)
+static int generate_discovery_response(SnmpPDU *pdu, buf_t *output_buf)
 {
+    /* PDU header */
     int max_pdu_size = min(pdu->max_size, MAX_PDU_SIZE);
-
-    pdu->scoped_pdu.decrypted_pdu = scoped_pdu;
     pdu->max_size = MAX_PDU_SIZE;
-    pdu->requires_response = 0;
-    fill_security_header(pdu);
-    fill_context_header(scoped_pdu);
-    scoped_pdu->type = REPORT;
-    scoped_pdu->error_status = NO_ERROR;
-    scoped_pdu->error_index = 0;
-    scoped_pdu->num_of_bindings = 1;
-    SET_OID(scoped_pdu->bindings[0].oid, SNMP_OID_UNKNOWN_ENGINE_ID_COUNTER);
-    scoped_pdu->bindings[0].type = SMI_TYPE_COUNTER_32;
-    scoped_pdu->bindings[0].value.unsigned_integer =
+    fill_security_header(-1, pdu);
+
+    /* Scoped PDU header */
+    fill_context_header(GET_SCOPED_PDU(*pdu));
+    GET_SCOPED_PDU(*pdu)->type = REPORT;
+    GET_SCOPED_PDU(*pdu)->error_status = NO_ERROR;
+    GET_SCOPED_PDU(*pdu)->error_index = 0;
+    GET_SCOPED_PDU(*pdu)->num_of_bindings = 1;
+    SET_OID(GET_SCOPED_PDU(*pdu)->bindings[0].oid, \
+         SNMP_OID_UNKNOWN_ENGINE_ID_COUNTER);
+    GET_SCOPED_PDU(*pdu)->bindings[0].type = SMI_TYPE_COUNTER_32;
+    GET_SCOPED_PDU(*pdu)->bindings[0].value.unsigned_integer =
             get_statistics()->usm_stats_unknown_engine_ids;
 
     return build_response_pdu(-1, pdu, output_buf, max_pdu_size);
 }
 
-static int generate_time_sync_response(SnmpUserSlot user, SnmpPDU *pdu,
-        SnmpScopedPDU *scoped_pdu, buf_t *output_buf)
+static int generate_time_sync_response(SnmpUserSlot user,
+        SnmpPDU *pdu, buf_t *output_buf)
 {
+    /* PDU header */
     int max_pdu_size = min(pdu->max_size, MAX_PDU_SIZE);
-
-    pdu->scoped_pdu.decrypted_pdu = scoped_pdu;
     pdu->max_size = MAX_PDU_SIZE;
-    pdu->requires_response = 0;
-    fill_security_header(pdu);
-    fill_context_header(scoped_pdu);
-    scoped_pdu->type = REPORT;
-    scoped_pdu->error_status = NO_ERROR;
-    scoped_pdu->error_index = 0;
-    scoped_pdu->num_of_bindings = 1;
-    SET_OID(scoped_pdu->bindings[0].oid, SNMP_OID_INVALID_TIME_WINDOW_COUNTER);
-    scoped_pdu->bindings[0].type = SMI_TYPE_COUNTER_32;
-    scoped_pdu->bindings[0].value.unsigned_integer =
+    fill_security_header(user, pdu);
+    pdu->is_encrypted = 0;
+
+    /* Scoped PDU header */
+    fill_context_header(GET_SCOPED_PDU(*pdu));
+    GET_SCOPED_PDU(*pdu)->type = REPORT;
+    GET_SCOPED_PDU(*pdu)->error_status = NO_ERROR;
+    GET_SCOPED_PDU(*pdu)->error_index = 0;
+    GET_SCOPED_PDU(*pdu)->num_of_bindings = 1;
+    SET_OID(GET_SCOPED_PDU(*pdu)->bindings[0].oid, \
+            SNMP_OID_INVALID_TIME_WINDOW_COUNTER);
+    GET_SCOPED_PDU(*pdu)->bindings[0].type = SMI_TYPE_COUNTER_32;
+    GET_SCOPED_PDU(*pdu)->bindings[0].value.unsigned_integer =
             get_statistics()->usm_stats_not_in_time_windows;
 
     return build_response_pdu(user, pdu, output_buf, max_pdu_size);
@@ -702,19 +720,19 @@ static int generate_security_error_response(SnmpUserSlot user, SnmpPDU *pdu,
         }
 
         default: {
-            return generate_error_response(user, RESPONSE, GENERAL_ERROR, 0, pdu,
-                NULL, output_buf);
+            return generate_error_response(user, RESPONSE,
+                GENERAL_ERROR, 0, pdu, 0, output_buf);
         }
     }
 
     *auth_trap = 1;
-    return generate_error_response(user, RESPONSE, AUTHORIZATION_ERROR, 0, pdu,
-            NULL, output_buf);
+    return generate_error_response(user, RESPONSE,
+        AUTHORIZATION_ERROR, 0, pdu, 0, output_buf);
 }
 
 static int generate_error_response(SnmpUserSlot user, SnmpPduType type,
         SnmpErrorStatus errStatus, int errIndex, SnmpPDU *pdu,
-        SnmpScopedPDU *scoped_pdu, buf_t *output_buf)
+        int valid_scoped_pdu, buf_t *output_buf)
 {
     switch (errStatus) {
         case GENERAL_ERROR: {
@@ -743,22 +761,20 @@ static int generate_error_response(SnmpUserSlot user, SnmpPduType type,
     }
 
     int max_pdu_size = min(pdu->max_size, MAX_PDU_SIZE);
-    SnmpScopedPDU empty_scoped_pdu;
-    empty_scoped_pdu.request_id = 0;
-
-    pdu->scoped_pdu.decrypted_pdu =
-            scoped_pdu == NULL ? &empty_scoped_pdu : scoped_pdu;
-    pdu->max_size = MAX_PDU_SIZE;
-    pdu->requires_response = 0;
-    fill_security_header(pdu);
-    fill_context_header(pdu->scoped_pdu.decrypted_pdu);
-    pdu->scoped_pdu.decrypted_pdu->type = type;
-    pdu->scoped_pdu.decrypted_pdu->error_status = errStatus;
-    pdu->scoped_pdu.decrypted_pdu->error_index = errIndex;
-    if (scoped_pdu == NULL) {
-        pdu->scoped_pdu.decrypted_pdu->num_of_bindings = 0;
+    SnmpScopedPDU *scoped_pdu = &pdu->scoped_pdu.decrypted;
+    if (!valid_scoped_pdu) {
+        memset(scoped_pdu, 0, sizeof(SnmpScopedPDU));
     }
 
+    /* PDU header */
+    pdu->max_size = MAX_PDU_SIZE;
+    fill_security_header(user, pdu);
+
+    /* Scoped PDU header */
+    fill_context_header(scoped_pdu);
+    scoped_pdu->type = type;
+    scoped_pdu->error_status = errStatus;
+    scoped_pdu->error_index = errIndex;
     return build_response_pdu(user, pdu, output_buf, max_pdu_size);
 }
 
@@ -769,29 +785,29 @@ static int build_response_pdu(SnmpUserSlot user, SnmpPDU *pdu,
 
     while (1) {
         if (user == -1) {
-            if (!encode_snmp_scoped_pdu(pdu->scoped_pdu.decrypted_pdu, output_buf)
-                && !encode_snmp_pdu(pdu, output_buf, output_buf->size - output_buf->pos)
-                && output_buf->size - output_buf->pos <= max_pdu_size) {
+            if (!encode_snmp_scoped_pdu(GET_SCOPED_PDU(*pdu), output_buf) &&
+                !encode_snmp_pdu(pdu, output_buf,
+                output_buf->size - output_buf->pos) &&
+                output_buf->size - output_buf->pos <= max_pdu_size) {
                 return 0;
             }
-        } else if (!process_outgoing_pdu(pdu, output_buf, &usm_context[user])
-                && output_buf->size - output_buf->pos <= max_pdu_size) {
+        } else if (!process_outgoing_pdu(pdu, output_buf, &usm_context[user]) &&
+                    output_buf->size - output_buf->pos <= max_pdu_size) {
             return 0;
         }
 
-        if (pdu->scoped_pdu.decrypted_pdu->num_of_bindings > 0) {
+        if (pdu->scoped_pdu.decrypted.num_of_bindings > 0) {
             syslog(LOG_DEBUG, "response PDU too big : dropping last var binding");
-            pdu->scoped_pdu.decrypted_pdu->num_of_bindings--;
+            pdu->scoped_pdu.decrypted.num_of_bindings--;
 
-            if (pdu->scoped_pdu.decrypted_pdu->error_status != TOO_BIG) {
+            if (pdu->scoped_pdu.decrypted.error_status != TOO_BIG)
                 get_statistics()->snmp_out_too_big++;
-            }
 
-            if (pdu->scoped_pdu.decrypted_pdu->error_status == NO_ERROR
-                || pdu->scoped_pdu.decrypted_pdu->error_status == TOO_BIG) {
-                pdu->scoped_pdu.decrypted_pdu->error_status = TOO_BIG;
-                pdu->scoped_pdu.decrypted_pdu->error_index =
-                    pdu->scoped_pdu.decrypted_pdu->num_of_bindings + 1;
+            if (pdu->scoped_pdu.decrypted.error_status == NO_ERROR
+                || pdu->scoped_pdu.decrypted.error_status == TOO_BIG) {
+                pdu->scoped_pdu.decrypted.error_status = TOO_BIG;
+                pdu->scoped_pdu.decrypted.error_index =
+                    pdu->scoped_pdu.decrypted.num_of_bindings + 1;
             }
         } else {
             syslog(LOG_WARNING, "failed to encode response PDU : too big");
@@ -802,16 +818,19 @@ static int build_response_pdu(SnmpUserSlot user, SnmpPDU *pdu,
     }
 }
 
-static void fill_security_header(SnmpPDU *pdu)
+static void fill_security_header(SnmpUserSlot user, SnmpPDU *pdu)
 {
-    pdu->security_parameters.authoritative_engine_boots = get_boot_count();
-    pdu->security_parameters.authoritative_engine_time = get_uptime();
-    pdu->security_parameters.privacy_parameters_len = 0;
-    pdu->security_parameters.authentication_parameters_len = 0;
+    pdu->is_authenticated = user != -1 && usm_context[user].level > NO_AUTH_NO_PRIV;
+    pdu->is_encrypted = user != -1 && usm_context[user].level > AUTH_NO_PRIV;
+    pdu->requires_response = 0;
+    pdu->security_params.auth_engine_boots = get_boot_count();
+    pdu->security_params.auth_engine_time = get_uptime();
+    pdu->security_params.priv_param_len = 0;
+    pdu->security_params.auth_param_len = 0;
     uint8_t *engine_id;
-    pdu->security_parameters.authoritative_engine_id_len = get_engine_id(&engine_id);
-    memcpy(pdu->security_parameters.authoritative_engine_id, engine_id,
-            pdu->security_parameters.authoritative_engine_id_len);
+    pdu->security_params.auth_engine_id_len = get_engine_id(&engine_id);
+    memcpy(pdu->security_params.auth_engine_id, engine_id,
+            pdu->security_params.auth_engine_id_len);
 }
 
 static void fill_context_header(SnmpScopedPDU *scoped_pdu)
@@ -896,7 +915,8 @@ static void increment_incoming_error_counter(SnmpScopedPDU *pdu)
 static int init_socket(struct pollfd *poll_descriptor)
 {
     if (get_agent_port() <= 1) {
-        syslog(LOG_ERR, "failed to create UDP socket : invalid port %"PRIu16, get_agent_port());
+        syslog(LOG_ERR, "failed to create UDP socket : invalid port %"PRIu16,
+            get_agent_port());
         return -1;
     }
 
@@ -943,7 +963,8 @@ static int init_socket(struct pollfd *poll_descriptor)
     address.sin6_family = AF_INET6;
     address.sin6_port = htons(get_agent_port());
     address.sin6_addr = in6addr_any;
-    if (bind(udp_socket_descriptor, (struct sockaddr *) &address, sizeof(address)) == -1) {
+    if (bind(udp_socket_descriptor, (struct sockaddr *) &address,
+            sizeof(address)) == -1) {
         syslog(LOG_ERR, "failed to bind socket : %s", strerror(errno));
         return -1;
     }
@@ -953,7 +974,8 @@ static int init_socket(struct pollfd *poll_descriptor)
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(udp_socket_descriptor, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq,
             sizeof(mreq)) == -1) {
-        syslog(LOG_WARNING, "failed to join IPv4 multicast group : %s", strerror(errno));
+        syslog(LOG_WARNING, "failed to join IPv4 multicast group : %s",
+            strerror(errno));
     }
 
     struct ipv6_mreq mreq6;
@@ -961,7 +983,8 @@ static int init_socket(struct pollfd *poll_descriptor)
     inet_pton(AF_INET6, IP6_GROUP, &mreq6.ipv6mr_multiaddr);
     if (setsockopt(udp_socket_descriptor, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq6,
             sizeof(mreq6)) == -1) {
-        syslog(LOG_WARNING, "failed to join IPv6 multicast group : %s", strerror(errno));
+        syslog(LOG_WARNING, "failed to join IPv6 multicast group : %s",
+            strerror(errno));
     }
 
     poll_descriptor->fd = udp_socket_descriptor;
@@ -1007,7 +1030,8 @@ static int init_usm_context(void)
                     &config->auth_secret, &usm_context[i])) {
                 syslog(LOG_ERR, "failed to derive master keyset for user %i", i);
                 return -1;
-            } else if (derive_usm_diversified_keys(engine_id, engine_id_len, &usm_context[i])) {
+            } else if (derive_usm_diversified_keys(engine_id,
+                engine_id_len, &usm_context[i])) {
                 syslog(LOG_ERR, "failed to diversify keyset for user %i", i);
                 return -1;
             }
