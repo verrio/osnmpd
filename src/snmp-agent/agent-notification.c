@@ -47,7 +47,7 @@
 #include "snmp-core/tinyber.h"
 #include "snmp-core/utils.h"
 
-#define NOTIFICATION_TX_QUEUE	"/snmp-notifications-generated"
+#define NOTIFICATION_TX_QUEUE	"/snmp-notifications"
 #define NOTIFICATION_RX_QUEUE	"/snmp-notifications"
 #define MAX_NOTIFICATION_SIZE	512
 #define MAX_SNMP_NOTIFICATION_SIZE	1024
@@ -218,6 +218,7 @@ int init_notification_handler(struct pollfd *poll_descriptor, int *timeout)
 
     /* init handler state */
     int ret_val = init_state();
+    ret_val |= init_notification_builder();
 
     /* init message queues */
     struct mq_attr queue_attr;

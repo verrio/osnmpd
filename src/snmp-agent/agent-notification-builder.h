@@ -28,6 +28,57 @@
 
 #define NOTIFICATION_VERSION	0x00
 
+#define CHECK_TRAP_ENC_RESULT(x,y) do { \
+    int retval = (x); \
+    if (retval != 0) { \
+        syslog(LOG_WARNING, "failed to encode %s. (return code %d)", y, retval); \
+        return -1; \
+    } \
+} while (0)
+
+#define CHECK_TRAP_DEC_RESULT(x,y) do { \
+    int retval = (x); \
+    if (retval != 0) { \
+        syslog(LOG_WARNING, "notification decode error: %s. (return code %d)", \
+            y, retval); \
+        return -1; \
+    } \
+} while (0)
+
+/* notification type */
+typedef struct agent_notification {
+
+    /* trap IDs identifying the notification type */
+    uint16_t code_1;
+    uint16_t code_2;
+
+    /* associated OID */
+    const SubOID *oid;
+    size_t oid_len;
+
+    /* argument handling (NULL if no arguments required) */
+    int (*add_arguments)(const struct agent_notification *notification,
+            buf_t *input_buf, SnmpScopedPDU *output_pdu);
+
+} agent_notification;
+
+/**
+ * init_notification_builder - initialise the notification builder.
+ *
+ * @return 0 on success, negative number on failure
+ */
+int init_notification_builder(void);
+
+/**
+ * add_notification_type - add new notification type.
+ *
+ * type IN - notification to be added.
+ *
+ * @return 0 on success, negative number on failure
+ */
+__attribute__((visibility("default")))
+int add_notification_type(const agent_notification *type);
+
 /**
  * build_authentication_failure_notification - build new authorization exception
  * notification.

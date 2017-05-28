@@ -250,6 +250,7 @@ int encode_snmp_scoped_pdu(const SnmpScopedPDU *pdu, buf_t *dst);
  *
  * @return reference to the new variable binding, NULL on error.
  */
+__attribute__((visibility("default")))
 SnmpVariableBinding *add_variable_binding(SnmpScopedPDU *pdu);
 
 #ifdef DEBUG

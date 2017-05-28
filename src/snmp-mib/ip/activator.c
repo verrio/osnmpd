@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,10 +22,12 @@
  */
 
 #include "snmp-agent/mib-tree.h"
+#include "snmp-agent/agent-notification-builder.h"
 #include "snmp-mib/ip/if-module.h"
 #include "snmp-mib/ip/ifx-module.h"
 #include "snmp-mib/ip/if-inverted-module.h"
 #include "snmp-mib/ip/ip-cache.h"
+#include "snmp-mib/ip/ip-traps.h"
 #include "snmp-mib/ip/ip-module.h"
 #include "snmp-mib/ip/icmp-module.h"
 #include "snmp-mib/ip/tcp-module.h"
@@ -36,6 +38,10 @@ __attribute__((constructor))
 static void load_plugin(void)
 {
     init_ip_statistics();
+
+    add_notification_type(&trap_link_up);
+    add_notification_type(&trap_link_down);
+
     add_module(init_ip_module, "ip");
     add_module(init_icmp_module, "icmp");
     add_module(init_tcp_module, "tcp");

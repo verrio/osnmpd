@@ -78,10 +78,15 @@ static inline void init_ibuf (buf_t * self, uint8_t * buffer, unsigned int size)
 }
 
 // decoder
+__attribute__((visibility("default")))
 int decode_BOOLEAN (asn1raw_t * src);
+__attribute__((visibility("default")))
 asn1int_t decode_INTEGER (asn1raw_t * src);
+__attribute__((visibility("default")))
 uint8_t decode_BITSTRING (asn1raw_t * src);
+__attribute__((visibility("default")))
 int decode_TLV (asn1raw_t * dst, buf_t * src);
+__attribute__((visibility("default")))
 int decode_length (buf_t * src, uint32_t * length);
 
 // encoder

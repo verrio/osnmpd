@@ -21,30 +21,14 @@
  * SOFTWARE.
  */
 
-#include "snmp-agent/mib-tree.h"
+#ifndef SRC_SNMP_MIB_POWER_BATTERY_TRAPS_H_
+#define SRC_SNMP_MIB_POWER_BATTERY_TRAPS_H_
+
 #include "snmp-agent/agent-notification-builder.h"
-#include "snmp-mib/power/battery-module.h"
-#include "snmp-mib/power/battery-traps.h"
-#include "snmp-mib/power/ups-module.h"
 
-__attribute__((constructor))
-static void load_plugin(void)
-{
-    add_notification_type(&battery_low_voltage);
-    add_notification_type(&battery_replace);
-    add_notification_type(&battery_charge_start);
-    add_notification_type(&battery_charge_stop);
+extern agent_notification battery_low_voltage;
+extern agent_notification battery_replace;
+extern agent_notification battery_charge_start;
+extern agent_notification battery_charge_stop;
 
-    add_module(init_battery_module, "battery");
-    /* TODO
-    add_module(init_ups_ident_module, "UPS ident");
-    add_module(init_ups_battery_module, "UPS battery");
-    add_module(init_ups_input_module, "UPS input");
-    add_module(init_ups_output_module, "UPS output");
-    add_module(init_ups_bypass_module, "UPS bypass");
-    add_module(init_ups_alarm_module, "UPS alarm");
-    add_module(init_ups_test_module, "UPS test");
-    add_module(init_ups_control_module, "UPS control");
-    add_module(init_ups_config_module, "UPS config");
-     */
-}
+#endif /* SRC_SNMP_MIB_POWER_BATTERY_TRAPS_H_ */

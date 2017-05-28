@@ -11,13 +11,24 @@ EXPORTS ALL;
 AgentFlags ::= BIT STRING (SIZE (8))
 
 -- trap request dispatched to the agent's message queue
+--
+-- some pairs of trapcodes are mapped to RFC-defined OIDs:
+-- (0x6300,0x0407) : SNMP authentication failure
+-- (0x0002,0x0000) : cold start
+-- (0x0000,0x0107) : link up
+-- (0x0000,0x0108) : link down
+-- (0x0020,0x0000) : battery voltage low
+-- (0x001f,0x0000) : replace battery
+-- (0x0000,0x0086) : battery charge start
+-- (0x0000,0x0087) : battery charge stop
+--
 AgentTrapRequest ::= SEQUENCE {
     version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
     flags AgentFlags DEFAULT '00'H, -- reserved for future usage
     timeStamp INTEGER (0..18446744073709551615), -- milliseconds since epoch
     trapCode1 INTEGER (0..65535) DEFAULT 0,  -- trap code 1
     trapCode2 INTEGER (0..65535) DEFAULT 0, -- trap code 2
-    arguments SEQUENCE OF VarArguments -- optional OIDs
+    arguments SEQUENCE OF VarArguments -- optional arguments included in event (max 8)
 }
 
 -- control socket request
@@ -26,16 +37,16 @@ AgentCtlRequest ::= SEQUENCE {
     flags AgentFlags, -- reserved for future usage
     requestId INTEGER (0..255), -- tracking ID
     requestType ENUMERATED, -- enum with request command
-    arguments SEQUENCE OF VarArguments
+    arguments SEQUENCE OF VarArguments -- request arguments
 }
 
 -- control socket response
 AgentCtlResponse ::= SEQUENCE {
     version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
     flags AgentFlags, -- reserved for future usage
-    responseId INTEGER (0..255), -- echo'ed request ID
+    responseId INTEGER (0..255), -- echo'ed tracking ID
     resultCode ResultCode, -- result of command execution
-    arguments SEQUENCE OF VarArguments
+    arguments SEQUENCE OF VarArguments -- response arguments
 }
 
 ResultCode ::= ENUMERATED {

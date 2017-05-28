@@ -2,7 +2,6 @@
 - don't block on DNS resolving
 - do some proper unit testing
 - do some fuzzing
-- allow incoming PDUs with extended ints in security header
 - allow remotely changing the passwords
 - expose file system statistics somehow
 - add ENTITY-MIB
