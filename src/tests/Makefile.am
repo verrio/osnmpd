@@ -1,4 +1,4 @@
-noinst_PROGRAMS = pdu-tests event-tests
+noinst_PROGRAMS = pdu-tests event-tests ctl-tests
 
 pdu_tests_SOURCES = pdu-tests.c \
         ../snmp-core/snmp-core.h ../snmp-core/snmp-types.c \
@@ -15,5 +15,11 @@ event_tests_SOURCES = event-tests.c \
         ../snmp-core/tinyber.h ../snmp-core/utils.c ../snmp-core/utils.h
 
 event_tests_LDADD = -lrt
-	
+
+ctl_tests_SOURCES = ctl-tests.c \
+        ../snmp-core/tinyber.h ../snmp-core/tinyber.c \
+        ../snmp-core/utils.c ../snmp-core/utils.h
+
+ctl_tests_LDADD = -lrt
+
 AM_CPPFLAGS = -I$(top_srcdir)/src/snmp-core

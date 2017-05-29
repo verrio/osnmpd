@@ -201,14 +201,12 @@ static int init_state(void)
         if (init_master_keyset() || derive_usm_diversified_keys(engine_id,
                 engine_id_len, &notification_ctx.usm_ctx)) {
             syslog(LOG_ERR, "keyset unavailable : notifications unavailable");
-            goto err;
+            notification_ctx.drop = 1;
+            return -1;
         }
     }
 
     return 0;
-err:
-    notification_ctx.drop = 1;
-    return -1;
 }
 
 int init_notification_handler(struct pollfd *poll_descriptor, int *timeout)
@@ -339,29 +337,41 @@ void handle_incoming_notification(void)
     }
 }
 
-int update_notification_keyset(void)
+int refresh_notification_handler_state(void)
 {
-    if (get_trap_configuration()->user == -1)
-        return 0;
-
-    if (get_trap_configuration()->confirmed) {
-        /* force new key derivation */
-        if (notification_ctx.engine_id != NULL) {
-            free(notification_ctx.engine_id);
-            notification_ctx.engine_id = NULL;
+    notification_ctx.drop = 0;
+    if (get_trap_configuration()->user != -1) {
+        UserConfiguration *user_config =
+                get_user_configuration(get_trap_configuration()->user);
+        if (user_config != NULL) {
+            strcpy(notification_ctx.usm_ctx.user_name, user_config->name);
+            notification_ctx.usm_ctx.user_name_len = strlen(user_config->name);
+            notification_ctx.usm_ctx.level = user_config->security_level;
+        } else {
+            notification_ctx.usm_ctx.user_name_len = 0;
+            notification_ctx.usm_ctx.level = NO_AUTH_NO_PRIV;
         }
-        enter_wait_for_new_notification(0);
     } else {
+        notification_ctx.usm_ctx.user_name_len = 0;
+        notification_ctx.usm_ctx.level = NO_AUTH_NO_PRIV;
+    }
+
+    if (!get_trap_configuration()->confirmed) {
         uint8_t *engine_id;
         size_t engine_id_len = get_engine_id(&engine_id);
         if (init_master_keyset() || derive_usm_diversified_keys(engine_id,
                 engine_id_len, &notification_ctx.usm_ctx)) {
-            syslog(LOG_ERR, "keyset renewal failed");
+            syslog(LOG_ERR, "keyset unavailable : notifications unavailable");
             notification_ctx.drop = 1;
             return -1;
         }
+    } else if (notification_ctx.engine_id != NULL) {
+        /* force new key derivation */
+        free(notification_ctx.engine_id);
+        notification_ctx.engine_id = NULL;
     }
 
+    enter_wait_for_new_notification(0);
     return 0;
 }
 

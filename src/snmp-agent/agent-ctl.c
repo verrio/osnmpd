@@ -42,6 +42,8 @@
 #include "snmp-agent/agent-ctl.h"
 #include "snmp-agent/agent-cache.h"
 #include "snmp-agent/agent-config.h"
+#include "snmp-agent/agent-incoming.h"
+#include "snmp-agent/agent-notification.h"
 
 #define MAX_BUF_SIZE 2048
 
@@ -118,8 +120,8 @@ static int spi_socket = -1;
 static int config_changed = 0;
 
 static void handle_client_socket(int const);
+static int handle_client_request(buf_t *, buf_t *);
 static int execute_command(uint8_t, asn1int_t, buf_t *, buf_t *);
-static int handle_request(buf_t *, buf_t *);
 static int handle_request_unavailable(uint8_t, buf_t *, buf_t *);
 static int handle_request_name(uint8_t, buf_t *, buf_t *);
 static int handle_request_version(uint8_t, buf_t *, buf_t *);
@@ -198,6 +200,8 @@ void handle_ctl_request(void)
 
     if (config_changed) {
         write_configuration();
+        refresh_notification_handler_state();
+        update_incoming_keyset();
         config_changed = 0;
     }
 
@@ -280,7 +284,7 @@ static void handle_client_socket(int const client_socket)
 
         request_buffer.size = request_buffer.pos;
         request_buffer.pos = 0;
-        if (handle_request(&request_buffer, &response_buffer) == 0) {
+        if (handle_client_request(&request_buffer, &response_buffer) == 0) {
             send_response(client_socket, &resp_buf[response_buffer.pos],
                     response_buffer.size - response_buffer.pos);
         } else {
@@ -297,7 +301,7 @@ static void handle_client_socket(int const client_socket)
     }
 }
 
-static int handle_request(buf_t *request_buffer, buf_t *response_buffer)
+static int handle_client_request(buf_t *request_buffer, buf_t *response_buffer)
 {
     int dry_run = 0;
     asn1raw_t tlv;
@@ -344,7 +348,7 @@ static int handle_request(buf_t *request_buffer, buf_t *response_buffer)
     CHECK_ENC_RESULT(execute_command(dry_run, command_id, &section,
             response_buffer) != 0, "response", return -1);
 
-    write_header: ;
+write_header:;
     /* response header */
     asn1int_t version = SPI_VERSION;
     uint8_t flags = dry_run ? 0x80 : 0x00;
@@ -526,7 +530,6 @@ static int handle_request_interfaces(uint8_t dry_run, buf_t *arguments,
         buf_t *response_buffer, int modify)
 {
     asn1int_t result = RES_SUCCESS;
-
     if (modify) {
         asn1raw_t tlv;
 
@@ -583,12 +586,15 @@ static int handle_request_interfaces(uint8_t dry_run, buf_t *arguments,
             result = RES_ARGUMENTS_INVALID;
         } else if (!dry_run) {
             char **ifaces = get_agent_interfaces();
-            while (ifaces != NULL) {
-                size_t len = strlen(*ifaces);
-                if (len > 0)
-                    CHECK_ENC_RESULT(encode_OCTET_STRING(response_buffer,
-                        (uint8_t *) *ifaces, len), "iface string", return -1);
-                ifaces++;
+            if (ifaces != NULL) {
+                while (*ifaces != NULL) {
+                    size_t len = strlen(*ifaces);
+                    if (len > 0) {
+                        CHECK_ENC_RESULT(encode_OCTET_STRING(response_buffer,
+                            (uint8_t *) *ifaces, len), "iface string", return -1);
+                    }
+                    ifaces++;
+                }
             }
         }
     }
@@ -618,6 +624,7 @@ static int handle_request_port(uint8_t dry_run, buf_t *arguments,
             if (set_agent_port(decode_INTEGER(&tlv)) != 0) {
                 result = RES_OTHER_REASON;
             } else {
+                syslog(LOG_WARNING, "agent restart required before new port will be used");
                 config_changed = 1;
             }
         }
@@ -784,6 +791,7 @@ static int handle_request_user_config(uint8_t dry_run, buf_t *arguments,
 
     if (modify) {
         UserConfiguration user_config;
+        user_config.user = slot;
 
         if (decode_TLV(&tlv, arguments) == -1) {
             result = RES_ARGUMENTS_MISSING;

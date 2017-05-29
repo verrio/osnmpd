@@ -1,4 +1,4 @@
-osnmpd Agent
+osnmpd agent
 ============
 
 ## Overview
@@ -55,7 +55,7 @@ SNMP has historically a bad reputation when it comes to security.  The community
 
 Each user has a set of keys derived from a user-provided authentication and privacy password.  Alternatively, it is possible to preprovision the derived keys in the agent configuration, thereby skipping the key derivation process.  The keys can remotely be renewed using a Diffie-Hellman key exchange procedure as described in RFC 2786.  The agent uses the USM variant with modern cryptoprimitives (CFB128-AES-256 encryption with an HMAC192-SHA-256 authentication tag).  No non-standard key extensions are required, since the hashing algorithm generates 32-byte output.  A lot of clients seem to lack support for these newer ciphers however.  Legacy but more common primitives (AES-128/SHA-1) can be enabled in the build configuration.
 
-Security models other than USM are currently not available (so no TLS or Kerberos authentication).  I personally loathe the complexity involved with PKIX path building and X.509 certificate validation, and I believe I'll never completely understand how it actually all ties together.  A newer security model piggybacking on top of SSH (RFC 5592) sounds very tempting, but I haven't found a single client that supports it properly, so I'll leave it out for now.
+Security models other than USM are currently not available (so no TLS or Kerberos authentication);  A newer security model piggybacking on top of SSH (RFC 5592) sounds very tempting, but I haven't found a single client that supports it properly, so I'll leave it out for now.
 
 The agent needs not run as root;  once the socket has been bound, it can drop privileges to the configured user.  Mind though that a lot of the MIB attributes require elevated access rights and capabilities (e.g. the `CAP_SYS_TIME` capability for changing the system time).
 
@@ -137,7 +137,7 @@ This module allows for delegating requests for a MIB subtree to an external proc
 
 ## FAQ
 
-#### Using SNMP in the present time!?  What kind of man are you?
+#### Using SNMP in this day and age!?  What kind of man are you?
 
 I admit, SNMP has it quirky sides.  In particular, the lack of table joins and other query operations is sometimes frustrating.  Still, being a non-propietary standard makes up for that.  Just about any device on my network, doesn't matter how crappy the firmware, has some basic SNMP support.  Traps aren't as fancy as pub-sub based protocols, but for basic network monitoring they still seem to do the job.  The high-end networking equipment seems to move on to more capable proprietary standards, but I'd wager for the low-end SNMP will stick around for some time to come.
 
@@ -149,7 +149,7 @@ I like to believe that “no security incidents found” means that it's a safe 
 
 #### Any plans on supporting other transport layers (TCP/SSH/TLS)?
 
-Currently UDP seems the only SNMP transport that works with all clients.  The only drawback is the limited PDU size, but I haven't bumped into a attribute too large to fit in a PDU yet.  I don't know if wiring a packet-based application protocol on top of a stream-based transport layer makes all that much sense, but Jedem das Seine.
+Currently UDP seems the only SNMP transport that works with all clients.  The only drawback is the limited PDU size, but I haven't bumped into a attribute too large to fit in a PDU yet.  I don't know if wiring a packet-based application protocol on top of a stream-based transport layer makes all that much sense either.
 
 #### Why not use Net-SNMP like the rest?
 

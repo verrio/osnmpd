@@ -51,6 +51,7 @@ Debug/
 src/osnmpd
 src/tests/pdu-tests
 src/tests/event-tests
+src/tests/ctl-tests
 dh.param
 conf/osnmpd
 conf/snmpd.conf

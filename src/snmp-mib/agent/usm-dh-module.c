@@ -264,7 +264,7 @@ static int derive_and_apply(SnmpUserSlot user, int auth, uint8_t *pub_key)
     write_configuration();
 
     /* update runtime */
-    update_notification_keyset();
+    refresh_notification_handler_state();
     update_incoming_keyset();
 
     DH_free(keypair);

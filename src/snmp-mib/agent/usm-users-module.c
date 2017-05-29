@@ -177,7 +177,7 @@ static SnmpErrorStatus set_user_name(UserConfiguration *user,
         if (write_configuration())
             return GENERAL_ERROR;
         update_incoming_keyset();
-        update_notification_keyset();
+        refresh_notification_handler_state();
     }
 
     return NO_ERROR;

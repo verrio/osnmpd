@@ -858,18 +858,17 @@ int set_trap_configuration(TrapConfiguration *configuration)
     trap_configuration.confirmed = configuration->confirmed;
     trap_configuration.user = configuration->user;
     trap_configuration.port = configuration->port;
-    if (trap_configuration.destination != NULL) {
+    if (trap_configuration.destination != NULL)
         free(trap_configuration.destination);
-    }
     if (configuration->destination != NULL) {
         trap_configuration.destination = strdup(configuration->destination);
-        if (trap_configuration.destination == NULL) {
+        if (trap_configuration.destination == NULL)
             return -1;
-        }
     } else {
         configuration->destination = NULL;
     }
-
+    trap_configuration.retries = configuration->retries;
+    trap_configuration.timeout = configuration->timeout;
     return 0;
 }
 
@@ -890,7 +889,8 @@ int set_user_configuration(UserConfiguration *configuration)
 
     /* copy fields */
     user_configuration[slot].enabled = configuration->enabled;
-    user_configuration[slot].security_level = configuration->security_level;
+    user_configuration[slot].security_level = slot == USER_PUBLIC ?
+            NO_AUTH_NO_PRIV : configuration->security_level;
     user_configuration[slot].security_model = configuration->security_model;
 
     if (user_configuration[slot].name != (char *) DEFAULT_USER_NAMES[slot])
@@ -921,7 +921,6 @@ int set_user_auth_password(SnmpUserSlot user, char *password)
         return -1;
 
     UserConfiguration *conf = &user_configuration[user];
-
     if (conf->auth_secret.is_key && conf->auth_secret.secret.key != NULL) {
         free(conf->auth_secret.secret.key);
     } else if (!conf->auth_secret.is_key && conf->auth_secret.secret.password != NULL) {
@@ -929,7 +928,7 @@ int set_user_auth_password(SnmpUserSlot user, char *password)
     }
 
     conf->auth_secret.is_key = 0;
-    conf->auth_secret.secret.password = password;
+    conf->auth_secret.secret.password = dup;
     conf->auth_secret.secret_len = strlen(password);
 
 #ifdef WITH_SMARTCARD_SUPPORT

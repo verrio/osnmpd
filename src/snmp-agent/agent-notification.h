@@ -56,11 +56,12 @@ void handle_incoming_notification(void);
 void dispatch_auth_failed_notification(const char *source);
 
 /**
- * update_notification_keyset - invalidate the USM keyset currently in use.
+ * refresh_notification_handler_state - reload the notification handler
+ * state from config.
  *
  * @return 0 on success or -1 on any error
  */
 __attribute__((visibility("default")))
-int update_notification_keyset(void);
+int refresh_notification_handler_state(void);
 
 #endif /* SRC_SNMP_AGENT_AGENT_NOTIFICATION_H_ */

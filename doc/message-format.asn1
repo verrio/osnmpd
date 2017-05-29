@@ -32,6 +32,27 @@ AgentTrapRequest ::= SEQUENCE {
 }
 
 -- control socket request
+--
+-- available commands:
+-- 0x00: get daemon name
+-- 0x01: get version
+-- 0x02: get uptime
+-- 0x03: get enabled interfaces
+-- 0x04: set enabled interfaces (arg contains sequence of iface names)
+-- 0x05: get port
+-- 0x06: set port (arg contains port)
+-- 0x07: get notification config
+-- 0x08: set notification config (arg contains enabled state,
+--       confirmation state, user slot, destination,
+--       port and retry count/timeout)
+-- 0x09: get user config (arg contains user slot)
+-- 0x0A: set user config (arg contains user slot, enabled state,
+--       user name, security model, security level)
+-- 0x0B: set user auth password (arg contains user slot, password)
+-- 0x0C: set user priv password (arg contains user slot, password)
+-- 0x0D: get engine id
+-- 0x0E: set engine id (arg contains octet-string with engine id)
+--
 AgentCtlRequest ::= SEQUENCE {
     version INTEGER (0..255) DEFAULT 0, -- reserved for future usage
     flags AgentFlags, -- reserved for future usage

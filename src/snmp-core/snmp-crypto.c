@@ -229,6 +229,9 @@ static int encrypt_scoped_pdu(SnmpPDU *pdu, buf_t *dst, const SnmpUSMContext *co
  */
 static int derive_key(const char *password, uint8_t *dst, size_t *dst_len)
 {
+    if (strlen(password) < 1)
+        return -1;
+
     USM_HASH_CTX context;
     if (!USM_HASH_INIT(&context)) {
         return -1;

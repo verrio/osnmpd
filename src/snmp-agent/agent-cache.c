@@ -148,14 +148,16 @@ int reset_boot_count(void)
 
     FILE *f = fopen(file_name, "w");
     if (f == NULL) {
-        syslog(LOG_WARNING, "boot counter could not be cleared : %s",
-                strerror(errno));
+        syslog(LOG_WARNING, "boot counter could not be cleared : %s", strerror(errno));
+        free(file_name);
         return -1;
     }
+
     fprintf(f, "%"PRIu32"\n", boot_count);
+
     fflush(f);
     fclose(f);
-
+    free(file_name);
     return 0;
 }
 
