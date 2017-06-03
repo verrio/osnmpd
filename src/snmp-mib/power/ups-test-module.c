@@ -50,40 +50,42 @@ enum UPSTestObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
+    UPSEntry *ups = get_ups_info();
+
     switch (id) {
         case UPS_TEST_ID: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_OID_BIND(binding, 0, 0);
             break;
         }
 
         case UPS_TEST_SPIN_LOCK: {
-            /* TODO */
             SET_INTEGER_BIND(binding, 0);
             break;
         }
 
         case UPS_TEST_RESULTS_SUMMARY: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ?
+                UPS_TEST_RESULTS_NO_TESTS_INITIATED : ups->test_status);
             break;
         }
 
         case UPS_TEST_RESULTS_DETAIL: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            if (ups == NULL) {
+                SET_OCTET_STRING_BIND(binding, NULL, 0);
+            } else {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->test_result), strlen(strdup(ups->test_result)));
+            }
             break;
         }
 
         case UPS_TEST_START_TIME: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_TIME_TICKS_BIND(binding, ups == NULL ? 0 : ups->test_start_time);
             break;
         }
 
         case UPS_TEST_ELAPSED_TIME: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ? 0 : ups->test_elapsed_time);
             break;
         }
     }

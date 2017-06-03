@@ -26,7 +26,7 @@ Dependencies:
 - libconfig
 - pcscd (if smartcard support is enabled)
 - libsensors (if sensor module is enabled)
-- nut/upsd (if UPS module is enabled)
+- NUT (if UPS module is enabled)
 
 ## Configuration
 
@@ -121,7 +121,7 @@ This module contains power-management related attributes.  This includes the fol
 - BATTERY-MIB
 - UPS-MIB
 
-This module requires a running upsd daemon.
+This module requires a running NUT ups driver.
 
 #### Sensors module
 

@@ -36,7 +36,6 @@ static void load_plugin(void)
     add_notification_type(&battery_charge_stop);
 
     add_module(init_battery_module, "battery");
-    /* TODO
     add_module(init_ups_ident_module, "UPS ident");
     add_module(init_ups_battery_module, "UPS battery");
     add_module(init_ups_input_module, "UPS input");
@@ -46,5 +45,4 @@ static void load_plugin(void)
     add_module(init_ups_test_module, "UPS test");
     add_module(init_ups_control_module, "UPS control");
     add_module(init_ups_config_module, "UPS config");
-     */
 }

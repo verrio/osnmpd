@@ -54,65 +54,61 @@ enum UPSConfigObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
-    switch (id) {
-        case UPS_CONFIG_INPUT_VOLTAGE: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    UPSEntry *ups = get_ups_info();
 
-        case UPS_CONFIG_INPUT_FREQ: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    if (ups == NULL) {
+        SET_INTEGER_BIND(binding, 0);
+    } else {
+        switch (id) {
+            case UPS_CONFIG_INPUT_VOLTAGE: {
+                SET_INTEGER_BIND(binding, ups->config_input_voltage);
+                break;
+            }
 
-        case UPS_CONFIG_OUTPUT_VOLTAGE: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_INPUT_FREQ: {
+                SET_INTEGER_BIND(binding, ups->config_input_freq);
+                break;
+            }
 
-        case UPS_CONFIG_OUTPUT_FREQ: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_OUTPUT_VOLTAGE: {
+                SET_INTEGER_BIND(binding, ups->config_output_voltage);
+                break;
+            }
 
-        case UPS_CONFIG_OUTPUT_VA: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_OUTPUT_FREQ: {
+                SET_INTEGER_BIND(binding, ups->config_output_freq);
+                break;
+            }
 
-        case UPS_CONFIG_OUTPUT_POWER: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_OUTPUT_VA: {
+                SET_INTEGER_BIND(binding, ups->config_output_va);
+                break;
+            }
 
-        case UPS_CONFIG_LOW_BATT_TIME: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_OUTPUT_POWER: {
+                SET_INTEGER_BIND(binding, ups->config_output_power);
+                break;
+            }
 
-        case UPS_CONFIG_AUDIBLE_STATUS: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_LOW_BATT_TIME: {
+                SET_INTEGER_BIND(binding, ups->config_low_batt_time);
+                break;
+            }
 
-        case UPS_CONFIG_LOW_VOLTAGE_TRANSFER_POINT: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_CONFIG_AUDIBLE_STATUS: {
+                SET_INTEGER_BIND(binding, ups->config_beeper);
+                break;
+            }
 
-        case UPS_CONFIG_HIGH_VOLTAGE_TRANSFER_POINT: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
+            case UPS_CONFIG_LOW_VOLTAGE_TRANSFER_POINT: {
+                SET_INTEGER_BIND(binding, ups->config_low_voltage_transfer);
+                break;
+            }
+
+            case UPS_CONFIG_HIGH_VOLTAGE_TRANSFER_POINT: {
+                SET_INTEGER_BIND(binding, ups->config_high_voltage_transfer);
+                break;
+            }
         }
     }
 

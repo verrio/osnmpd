@@ -54,17 +54,20 @@ enum UPSBypassTableColumns {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
-    switch (id) {
-        case UPS_BYPASS_FREQUENCY: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    UPSEntry *ups = get_ups_info();
+    if (ups == NULL) {
+        SET_INTEGER_BIND(binding, 0);
+    } else {
+        switch (id) {
+            case UPS_BYPASS_FREQUENCY: {
+                SET_INTEGER_BIND(binding, ups->bypass_freq);
+                break;
+            }
 
-        case UPS_BYPASS_NUM_LINES: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
+            case UPS_BYPASS_NUM_LINES: {
+                SET_INTEGER_BIND(binding, ups->bypass_num_lines);
+                break;
+            }
         }
     }
 
@@ -81,9 +84,42 @@ DEF_METHOD(get_tabular, SnmpErrorStatus, SingleLevelMibModule,
     SingleLevelMibModule, int id, int column, SubOID *row, size_t row_len,
     SnmpVariableBinding *binding, int next_row)
 {
-    /* TODO */
-    binding->type = next_row ? SMI_EXCEPT_END_OF_MIB_VIEW : SMI_EXCEPT_NO_SUCH_INSTANCE;
-    return NO_ERROR;
+    if (next_row) {
+        if (row_len > 0 && row[0] >= 1) {
+            binding->type = SMI_EXCEPT_END_OF_MIB_VIEW;
+            return NO_ERROR;
+        }
+    } else if (row_len != 1 || row[0] != 1) {
+        binding->type = SMI_EXCEPT_NO_SUCH_INSTANCE;
+        return NO_ERROR;
+    }
+
+    UPSEntry *ups = get_ups_info();
+    CHECK_INSTANCE_FOUND(next_row, ups);
+
+    switch (column) {
+        case UPS_BYPASS_LINE_INDEX: {
+            SET_INTEGER_BIND(binding, 0);
+            break;
+        }
+
+        case UPS_BYPASS_VOLTAGE: {
+            SET_INTEGER_BIND(binding, ups->bypass_voltage);
+            break;
+        }
+
+        case UPS_BYPASS_CURRENT: {
+            SET_INTEGER_BIND(binding, ups->bypass_current);
+            break;
+        }
+
+        case UPS_BYPASS_POWER: {
+            SET_INTEGER_BIND(binding, ups->bypass_power);
+            break;
+        }
+    }
+
+    INSTANCE_FOUND_INT_ROW(next_row, SNMP_OID_UPS_BYPASS_OBJECTS, UPS_BYPASS_TABLE, column, 1)
 }
 
 DEF_METHOD(set_tabular, SnmpErrorStatus, SingleLevelMibModule,

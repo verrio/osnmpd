@@ -49,34 +49,31 @@ enum UPSControlObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
+    UPSEntry *ups = get_ups_info();
+
     switch (id) {
         case UPS_SHUTDOWN_TYPE: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, 2); /* system */
             break;
         }
 
         case UPS_SHUTDOWN_AFTER_DELAY: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ? 0 : ups->shutdown_delay);
             break;
         }
 
         case UPS_STARTUP_AFTER_DELAY: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ? 0 : ups->startup_delay);
             break;
         }
 
         case UPS_REBOOT_WITH_DURATION: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ? 0 : ups->reboot_duration);
             break;
         }
 
         case UPS_AUTO_RESTART: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, ups == NULL ? 0 : ups->auto_restart);
             break;
         }
     }

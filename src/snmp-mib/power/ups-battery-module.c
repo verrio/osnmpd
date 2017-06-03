@@ -51,47 +51,46 @@ enum UPSBatteryTableColumns {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
-    switch (id) {
-        case UPS_BATTERY_STATUS: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    UPSEntry *ups = get_ups_info();
 
-        case UPS_SECONDS_ON_BATTERY: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    if (ups == NULL) {
+        SET_INTEGER_BIND(binding, 0);
+    } else {
+        switch (id) {
+            case UPS_BATTERY_STATUS: {
+                SET_INTEGER_BIND(binding, ups->status);
+                break;
+            }
 
-        case UPS_ESTIMATED_MINUTES_REMAINING: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_SECONDS_ON_BATTERY: {
+                SET_INTEGER_BIND(binding, ups->seconds_on_battery);
+                break;
+            }
 
-        case UPS_ESTIMATED_CHARGE_REMAINING: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_ESTIMATED_MINUTES_REMAINING: {
+                SET_INTEGER_BIND(binding, ups->minutes_remaining);
+                break;
+            }
 
-        case UPS_BATTERY_VOLTAGE: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_ESTIMATED_CHARGE_REMAINING: {
+                SET_INTEGER_BIND(binding, ups->charge_remaining);
+                break;
+            }
 
-        case UPS_BATTERY_CURRENT: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_BATTERY_VOLTAGE: {
+                SET_INTEGER_BIND(binding, ups->voltage);
+                break;
+            }
 
-        case UPS_BATTERY_TEMPERATURE: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
+            case UPS_BATTERY_CURRENT: {
+                SET_INTEGER_BIND(binding, ups->current);
+                break;
+            }
+
+            case UPS_BATTERY_TEMPERATURE: {
+                SET_INTEGER_BIND(binding, ups->temperature);
+                break;
+            }
         }
     }
 

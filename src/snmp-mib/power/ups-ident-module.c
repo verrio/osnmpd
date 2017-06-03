@@ -62,41 +62,47 @@ enum UPSIdentTableColumns {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
-    switch (id) {
-        case UPS_IDENT_MANUFACTURER: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    UPSEntry *ups = get_ups_info();
 
-        case UPS_IDENT_MODEL: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+    if (ups == NULL) {
+        SET_OCTET_STRING_BIND(binding, NULL, 0);
+    } else {
+        switch (id) {
+            case UPS_IDENT_MANUFACTURER: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->manufacturer), strlen(ups->manufacturer));
+                break;
+            }
 
-        case UPS_IDENT_UPS_SOFTWARE_VERSION: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_IDENT_MODEL: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->model), strlen(ups->model));
+                break;
+            }
 
-        case UPS_IDENT_AGENT_SOFTWARE_VERSION: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_IDENT_UPS_SOFTWARE_VERSION: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->fw_version), strlen(ups->fw_version));
+                break;
+            }
 
-        case UPS_IDENT_NAME: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
-        }
+            case UPS_IDENT_AGENT_SOFTWARE_VERSION: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->fw_version_aux), strlen(ups->fw_version_aux));
+                break;
+            }
 
-        case UPS_IDENT_ATTACHED_DEVICES: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
-            break;
+            case UPS_IDENT_NAME: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->ident), strlen(ups->ident));
+                break;
+            }
+
+            case UPS_IDENT_ATTACHED_DEVICES: {
+                SET_OCTET_STRING_RESULT(binding,
+                    strdup(ups->attached_devices), strlen(ups->attached_devices));
+                break;
+            }
         }
     }
 

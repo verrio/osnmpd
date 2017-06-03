@@ -45,7 +45,7 @@ enum UPSAlarmsObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
-    SET_GAUGE_BIND(binding, 0);
+    SET_INTEGER_BIND(binding, 0);
     return NO_ERROR;
 }
 

@@ -21,14 +21,21 @@
  * SOFTWARE.
  */
 
+#include <sys/un.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "snmp-agent/agent-cache.h"
 #include "snmp-core/utils.h"
@@ -36,7 +43,9 @@
 #include "snmp-mib/power/power-cache.h"
 
 #define UPDATE_INTERVAL 8
+#define SOCK_TIMEOUT 4
 
+#define PATH_UPS_SOCK "/var/lib/nut"
 #define PATH_BATTERY "/sys/class/power_supply/"
 #define PATH_BATTERY_TECHNOLOGY "technology"
 #define PATH_BATTERY_TYPE "type"
@@ -54,6 +63,11 @@
 #define PATH_BATTERY_STATUS "status"
 #define PATH_BATTERY_TEMPERATURE "temp"
 
+static int get_ups_sock(void);
+static int parse_ups_buf(char *, UPSEntry *);
+static void *fetch_ups_info(void);
+static void scan_ups_string(char *, size_t, const char *);
+static void scan_ups_decimal(uint32_t *, int, const char *);
 static void *fetch_battery_list(void);
 static void free_battery_list(void *);
 static enum BatteryTechnology get_battery_technology(char *);
@@ -62,9 +76,287 @@ static enum BatteryOperState get_battery_oper_status(char *);
 static size_t fill_buffer(char *, char *, char *, size_t);
 static int read_unsigned_number(char *, char *, uint32_t *);
 
+static const char *ups_cmd_get = "DUMPALL\n";
+static const char *ups_cmd_info = "SETINFO";
+static const char *ups_cmd_done = "DUMPDONE";
+
+enum UPSInfoType {
+    UPS_INFO_STRING,
+    UPS_INFO_DECIMAL,
+    UPS_INFO_BOOL,
+    UPS_INFO_STATUS,
+    UPS_INFO_TEST_STATUS
+};
+
+typedef struct {
+    char *key;
+    enum UPSInfoType type;
+    size_t offset;
+    int multiplier;
+} UPSInfo;
+
+static const UPSInfo ups_info[] = {
+    { "battery.charge", UPS_INFO_DECIMAL, offsetof(UPSEntry, charge_remaining), 1 },
+    { "battery.current", UPS_INFO_DECIMAL, offsetof(UPSEntry, current), 10 },
+    { "battery.runtime", UPS_INFO_DECIMAL, offsetof(UPSEntry, minutes_remaining), 1 },
+    { "battery.runtime.low", UPS_INFO_BOOL, offsetof(UPSEntry, config_low_batt_time), 1 },
+    { "battery.temperature", UPS_INFO_DECIMAL, offsetof(UPSEntry, temperature), 10 },
+    { "battery.voltage", UPS_INFO_DECIMAL, offsetof(UPSEntry, voltage), 10 },
+    { "debug.upsIdentAttachedDevices", UPS_INFO_STRING, offsetof(UPSEntry, attached_devices), 0 },
+    { "debug.upsIdentName", UPS_INFO_STRING, offsetof(UPSEntry, ident), 0 },
+    { "debug.upsInputLineBads", UPS_INFO_DECIMAL, offsetof(UPSEntry, num_line_bad), 1 },
+    { "debug.upsSecondsOnBattery", UPS_INFO_DECIMAL, offsetof(UPSEntry, seconds_on_battery), 1 },
+    { "debug.upsTestStartTime", UPS_INFO_DECIMAL, offsetof(UPSEntry, test_start_time), 1 },
+    { "debug.upsTestElapsedTime", UPS_INFO_DECIMAL, offsetof(UPSEntry, test_elapsed_time), 1 },
+    { "device.mfr", UPS_INFO_STRING, offsetof(UPSEntry, manufacturer), 0 },
+    { "device.model", UPS_INFO_STRING, offsetof(UPSEntry, model), 0 },
+    { "device.type", UPS_INFO_STRING, offsetof(UPSEntry, attached_devices), 0 },
+    { "driver.name", UPS_INFO_STRING, offsetof(UPSEntry, ident), 0 },
+    { "input.bypass.phases", UPS_INFO_DECIMAL, offsetof(UPSEntry, bypass_num_lines), 1 },
+    { "input.bypass.frequency", UPS_INFO_DECIMAL, offsetof(UPSEntry, bypass_freq), 10 },
+    { "input.bypass.voltage", UPS_INFO_DECIMAL, offsetof(UPSEntry, bypass_voltage), 1 },
+    { "input.bypass.current", UPS_INFO_DECIMAL, offsetof(UPSEntry, bypass_current), 10 },
+    { "input.bypass.realpower", UPS_INFO_DECIMAL, offsetof(UPSEntry, bypass_power), 1 },
+    { "input.current", UPS_INFO_DECIMAL, offsetof(UPSEntry, input_current), 10 },
+    { "input.phases", UPS_INFO_DECIMAL, offsetof(UPSEntry, num_lines), 1 },
+    { "input.frequency", UPS_INFO_DECIMAL, offsetof(UPSEntry, input_freq), 1 },
+    { "input.frequency.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_input_freq), 10 },
+    { "input.realpower", UPS_INFO_DECIMAL, offsetof(UPSEntry, input_power), 1 },
+    { "input.transfer.low", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_low_voltage_transfer), 1 },
+    { "input.transfer.high", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_high_voltage_transfer), 1 },
+    { "input.voltage", UPS_INFO_DECIMAL, offsetof(UPSEntry, input_voltage), 1 },
+    { "input.voltage.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_input_voltage), 1 },
+    { "output.current", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_current), 10 },
+    { "output.frequency", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_freq), 10 },
+    { "output.frequency.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_output_freq), 10 },
+    { "output.phases", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_num_lines), 1 },
+    { "output.power.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_output_va), 1 },
+    { "output.realpower", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_power), 1 },
+    { "output.realpower.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_output_power), 1 },
+    { "output.voltage", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_voltage), 1 },
+    { "output.voltage.nominal", UPS_INFO_DECIMAL, offsetof(UPSEntry, config_output_voltage), 1 },
+    { "test.battery.stop", UPS_INFO_TEST_STATUS, offsetof(UPSEntry, test_status), 1 },
+    { "test.battery.start", UPS_INFO_TEST_STATUS, offsetof(UPSEntry, test_status), 1 },
+    { "test.battery.start.quick", UPS_INFO_TEST_STATUS, offsetof(UPSEntry, test_status), 1 },
+    { "test.battery.start.deep", UPS_INFO_TEST_STATUS, offsetof(UPSEntry, test_status), 1 },
+    { "ups.load", UPS_INFO_DECIMAL, offsetof(UPSEntry, output_load), 1 },
+    { "ups.mfr", UPS_INFO_STRING, offsetof(UPSEntry, manufacturer), 0 },
+    { "ups.model", UPS_INFO_STRING, offsetof(UPSEntry, model), 0 },
+    { "ups.firmware", UPS_INFO_STRING, offsetof(UPSEntry, fw_version), 0 },
+    { "ups.firmware.aux", UPS_INFO_STRING, offsetof(UPSEntry, fw_version_aux), 0 },
+    { "ups.status", UPS_INFO_STATUS, offsetof(UPSEntry, status) },
+    { "ups.timer.shutdown", UPS_INFO_DECIMAL, offsetof(UPSEntry, shutdown_delay), 1 },
+    { "ups.timer.start", UPS_INFO_DECIMAL, offsetof(UPSEntry, startup_delay), 1 },
+    { "ups.timer.reboot", UPS_INFO_DECIMAL, offsetof(UPSEntry, reboot_duration), 1 },
+    { "ups.start.auto", UPS_INFO_BOOL, offsetof(UPSEntry, auto_restart), 1 },
+    { "ups.beeper.status", UPS_INFO_BOOL, offsetof(UPSEntry, config_beeper), 1 },
+    { "ups.test.result", UPS_INFO_STRING, offsetof(UPSEntry, test_result), 1 }
+};
+
 BatteryEntry *get_battery_list(void)
 {
     return get_mib_cache(fetch_battery_list, free_battery_list, UPDATE_INTERVAL);
+}
+
+UPSEntry *get_ups_info(void)
+{
+    return get_mib_cache(fetch_ups_info, free, UPDATE_INTERVAL);
+}
+
+static void *fetch_ups_info(void)
+{
+    UPSEntry *ups = NULL;
+    int sock = get_ups_sock();
+    if (sock == -1) {
+        syslog(LOG_DEBUG, "UPS socket unavailable");
+        return NULL;
+    }
+
+    int offset = 0;
+    while (strlen(ups_cmd_get) - offset > 0) {
+        int written = write(sock, &ups_cmd_get[offset], strlen(ups_cmd_get) - offset);
+        if (written <= 0) {
+            goto err;
+        }
+        offset += written;
+    }
+
+    ups = (UPSEntry *) malloc(sizeof(UPSEntry));
+    if (ups == NULL) {
+        close(sock);
+        return NULL;
+    }
+    memset(ups, 0, sizeof(UPSEntry));
+    ups->status = UPS_STATUS_UNKNOWN;
+    ups->output_source = UPS_OUTPUT_SOURCE_NONE;
+    ups->test_status = UPS_TEST_RESULTS_NO_TESTS_INITIATED;
+    ups->auto_restart = 2;
+    ups->config_beeper = 1;
+
+    FILE *f = fdopen(sock, "r");
+    if (f == NULL)
+        goto err;
+
+    char buf[1024];
+    while (buf == fgets(buf, sizeof(buf), f)) {
+        if (parse_ups_buf(buf, ups))
+            break;
+    }
+
+    fclose(f);
+    return ups;
+err:
+    syslog(LOG_ERR, "failed to retrieve data from UPS daemon : %s", strerror(errno));
+    close(sock);
+    free(ups);
+    return NULL;
+}
+
+static int get_ups_sock(void)
+{
+    DIR *dir = opendir(PATH_UPS_SOCK);
+    if (dir == NULL)
+        return -1;
+
+    struct sockaddr_un sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
+    struct dirent *entry;
+    while ((entry = readdir(dir))) {
+        snprintf(sa.sun_path, sizeof(sa.sun_path)-1, "%s/%s",
+                PATH_UPS_SOCK, entry->d_name);
+        struct stat s;
+        if (stat(sa.sun_path, &s) == 0 && S_ISSOCK(s.st_mode))
+            break;
+        sa.sun_path[0] = '\0';
+    }
+    closedir(dir);
+
+    if (sa.sun_path[0] == '\0')
+        return -1;
+
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0)
+        return -1;
+
+    if (connect(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+        goto err;
+
+    struct timeval tv;
+    tv.tv_sec = SOCK_TIMEOUT;
+    tv.tv_usec = 0;
+
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)) < 0)
+        goto err;
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *) &tv, sizeof(tv)) < 0)
+        goto err;
+
+    return fd;
+err:
+    syslog(LOG_DEBUG, "failed to initialise UPS socket : %s", strerror(errno));
+    close(fd);
+    return -1;
+}
+
+static int parse_ups_buf(char *buf, UPSEntry *ups)
+{
+    if (!strncmp(buf, ups_cmd_done, strlen(ups_cmd_done)))
+        return -1;
+    if (strncmp(buf, ups_cmd_info, strlen(ups_cmd_info)))
+        return 0;
+
+    char *ptr;
+    char *key = strtok_r(buf + sizeof(ups_cmd_info), " ", &ptr);
+    char *val = strtok_r(NULL, "\n", &ptr);
+    if (key == NULL || val == NULL)
+        return 0;
+
+    for (int i = 0; i < sizeof(ups_info) / sizeof(UPSInfo); i++) {
+        if (!strcmp(ups_info[i].key, key)) {
+            switch (ups_info[i].type) {
+                case UPS_INFO_STRING: {
+                    scan_ups_string((char *) ((char *) ups + ups_info[i].offset),
+                        64, val);
+                    break;
+                }
+
+                case UPS_INFO_DECIMAL: {
+                    scan_ups_decimal((uint32_t *) ((char *) ups + ups_info[i].offset),
+                        ups_info[i].multiplier, val);
+                    break;
+                }
+
+                case UPS_INFO_BOOL: {
+                    char status[32];
+                    status[0] = '\0';
+                    scan_ups_string(status, sizeof(status), val);
+                    *((uint32_t *) ((char *) ups + ups_info[i].offset)) =
+                        strncmp(status, "yes", 3) ? 1 : 2;
+                    break;
+                }
+
+                case UPS_INFO_STATUS: {
+                    char status[32];
+                    status[0] = '\0';
+                    scan_ups_string(status, sizeof(status), val);
+
+                    char *tok = strtok_r(status, " ", &ptr);
+                    while (tok != NULL) {
+                        if (strncmp(tok, "OB", 2)) {
+                            ups->output_source = UPS_OUTPUT_SOURCE_BATTERY;
+                        } else if (strncmp(tok, "OL", 2)) {
+                            ups->output_source = UPS_OUTPUT_SOURCE_NORMAL;
+                        } else if (strncmp(tok, "LB", 2)) {
+                            ups->status = UPS_STATUS_BATTERY_LOW;
+                        } else if (strncmp(tok, "RB", 2) || strncmp(tok, "CHRG", 2)) {
+                            ups->status = UPS_STATUS_BATTERY_NORMAL;
+                        } else if (strncmp(tok, "DISCHRG", 2)) {
+                            ups->output_source = UPS_OUTPUT_SOURCE_BATTERY;
+                        }
+                        tok = strtok_r(NULL, "\n", &ptr);
+                    }
+                    break;
+                }
+
+                case UPS_INFO_TEST_STATUS: {
+                    if (strcmp(ups_info[i].key, "test.battery.stop")) {
+                        ups->test_status = UPS_TEST_RESULTS_ABORTED;
+                    } else {
+                        ups->test_status = UPS_TEST_RESULTS_IN_PROGRESS;;
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static void scan_ups_string(char *buf, size_t buf_len, const char *src)
+{
+    const char *p = src;
+    if (*p != '"')
+        return;
+    size_t i = 0;
+    while (i < buf_len && *(++p) != '\n' && *p != '\0') {
+        if (*p == '\\' && *(p + 1) == '"') {
+            continue;
+        } else {
+            buf[i++] = *p;
+        }
+    }
+    if (i) {
+        buf[--i] = '\0';
+    }
+}
+
+static void scan_ups_decimal(uint32_t *buf, int mult, const char *src)
+{
+    float f;
+    if (sscanf(src, "\"%f\"", &f) == 1)
+        *buf = (uint32_t) (f * mult);
 }
 
 static void *fetch_battery_list(void)

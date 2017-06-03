@@ -94,6 +94,84 @@ typedef struct BatteryEntry {
     struct BatteryEntry *next;
 } BatteryEntry;
 
+enum UPSStatus {
+    UPS_STATUS_UNKNOWN = 1,
+    UPS_STATUS_BATTERY_NORMAL = 2,
+    UPS_STATUS_BATTERY_LOW = 3,
+    UPS_STATUS_BATTERY_DEPLETED = 4
+};
+
+enum UPSOutputSource {
+    UPS_OUTPUT_SOURCE_OTHER = 1,
+    UPS_OUTPUT_SOURCE_NONE = 2,
+    UPS_OUTPUT_SOURCE_NORMAL = 3,
+    UPS_OUTPUT_SOURCE_BYPASS = 4,
+    UPS_OUTPUT_SOURCE_BATTERY = 5,
+    UPS_OUTPUT_SOURCE_BOOSTER = 6,
+    UPS_OUTPUT_SOURCE_REDUCER = 7
+};
+
+enum UPSTestResults {
+    UPS_TEST_RESULTS_DONE_PASS = 1,
+    UPS_TEST_RESULTS_DONE_WARNING = 2,
+    UPS_TEST_RESULTS_DONE_ERROR = 3,
+    UPS_TEST_RESULTS_ABORTED = 4,
+    UPS_TEST_RESULTS_IN_PROGRESS = 5,
+    UPS_TEST_RESULTS_NO_TESTS_INITIATED = 6
+};
+
+typedef struct UPSEntry {
+    char manufacturer[64];
+    char model[64];
+    char fw_version[64];
+    char fw_version_aux[64];
+    char ident[64];
+    char attached_devices[64];
+    enum UPSStatus status;
+    uint32_t seconds_on_battery;
+    uint32_t minutes_remaining;
+    uint32_t charge_remaining;
+    uint32_t voltage;
+    uint32_t current;
+    uint32_t temperature;
+    uint32_t num_line_bad;
+    uint32_t num_lines;
+    uint32_t input_freq;
+    uint32_t input_voltage;
+    uint32_t input_current;
+    uint32_t input_power;
+    enum UPSOutputSource output_source;
+    uint32_t output_freq;
+    uint32_t output_num_lines;
+    uint32_t output_voltage;
+    uint32_t output_current;
+    uint32_t output_power;
+    uint32_t output_load;
+    uint32_t bypass_freq;
+    uint32_t bypass_num_lines;
+    uint32_t bypass_voltage;
+    uint32_t bypass_current;
+    uint32_t bypass_power;
+    enum UPSTestResults test_status;
+    char test_result[64];
+    uint32_t test_start_time;
+    uint32_t test_elapsed_time;
+    uint32_t shutdown_delay;
+    uint32_t startup_delay;
+    uint32_t reboot_duration;
+    uint32_t auto_restart;
+    uint32_t config_input_voltage;
+    uint32_t config_input_freq;
+    uint32_t config_output_voltage;
+    uint32_t config_output_freq;
+    uint32_t config_output_va;
+    uint32_t config_output_power;
+    uint32_t config_low_batt_time;
+    uint32_t config_beeper;
+    uint32_t config_low_voltage_transfer;
+    uint32_t config_high_voltage_transfer;
+} UPSEntry;
+
 /**
  * @internal
  * get_battery_list - returns list of battery entries
@@ -101,5 +179,13 @@ typedef struct BatteryEntry {
  * @return list of battery entries, or NULL if not available.
  */
 BatteryEntry *get_battery_list(void);
+
+/**
+ * @internal
+ * get_ups_info - returns info on the UPS present on the system.
+ *
+ * @return UPS status info, or NULL if not available.
+ */
+UPSEntry *get_ups_info(void);
 
 #endif /* SRC_SNMP_MIB_SYSTEM_POWER_CACHE_H_ */
