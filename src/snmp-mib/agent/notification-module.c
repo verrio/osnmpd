@@ -36,7 +36,6 @@
 #define NOTIFICATION_MIB_OID        SNMP_OID_SNMPMODULES,13,1
 #define NOTIFICATION_MIB_COMPLIANCE_OID   SNMP_OID_SNMPMODULES,13,3,1,1
 #define NOTIFICATION_TAG    "upstream"
-#define MAIN_FILTER_PROFILE "filtered"
 
 static SysOREntry notification_or_entry = {
     .or_id = {
@@ -46,6 +45,9 @@ static SysOREntry notification_or_entry = {
     .or_descr = "SNMP-NOTIFICATION-MIB - parameters for the generation of notifications",
     .next = NULL
 };
+
+/* single filter */
+const char *const notification_filter_name = "filtered";
 
 /* single notification table row */
 static const char *table_idx_name = "internal";
@@ -151,8 +153,8 @@ static SnmpErrorStatus get_notify_filter_profile_table(int column, SubOID *row,
 
     switch (column) {
         case SNMP_NOTIFY_FILTER_PROFILE_NAME: {
-            SET_OCTET_STRING_RESULT(binding, strdup(MAIN_FILTER_PROFILE),
-                    strlen(MAIN_FILTER_PROFILE));
+            SET_OCTET_STRING_RESULT(binding, strdup(notification_filter_name),
+                    strlen(notification_filter_name));
             break;
         }
 

@@ -13,12 +13,12 @@ SUFFIXES = .in
 		-e 's|@SNMP_CACHE[@]|$(cachedir)|g' \
 		< $< > $@
 
-man8_MANS = ./osnmpd.8
+man8_MANS = ./snmpd.8
 
 EXTRA_DIST = \
 	./mib/* \
-	./osnmpd.8.in
+	./snmpd.8.in
 
 CLEANFILES = \
-	./osnmpd.8
+	./snmpd.8
 

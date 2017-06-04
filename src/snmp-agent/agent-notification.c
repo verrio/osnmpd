@@ -42,6 +42,7 @@
 #include "snmp-agent/agent-config.h"
 #include "snmp-agent/agent-notification.h"
 #include "snmp-agent/agent-notification-builder.h"
+#include "snmp-agent/agent-notification-log.h"
 #include "snmp-core/snmp-crypto.h"
 #include "snmp-core/snmp-pdu.h"
 #include "snmp-core/tinyber.h"
@@ -50,7 +51,6 @@
 #define NOTIFICATION_TX_QUEUE	"/snmp-notifications"
 #define NOTIFICATION_RX_QUEUE	"/snmp-notifications"
 #define MAX_NOTIFICATION_SIZE	512
-#define MAX_SNMP_NOTIFICATION_SIZE	1024
 #define MAX_RRT   32
 
 enum NotificationHandlerState {
@@ -689,6 +689,10 @@ static void handle_new_notification(void)
     notification_ctx.content.num_of_bindings = 0;
     if (build_snmp_notification_scoped_pdu(&buf, &notification_ctx.content)) {
         return;
+    }
+
+    if (store_new_log_entry(&notification_ctx.content)) {
+        syslog(LOG_WARNING, "failed to store incoming trap.");
     }
 
     dispatch_notification();

@@ -49,6 +49,7 @@
 #endif
 #include "snmp-agent/agent-incoming.h"
 #include "snmp-agent/agent-notification.h"
+#include "snmp-agent/agent-notification-log.h"
 #include "snmp-agent/agent-ctl.h"
 #include "snmp-agent/agent-config.h"
 #include "snmp-agent/agent-cache.h"
@@ -410,6 +411,9 @@ int main(int argc, char **argv)
     if (load_plugins()) {
         syslog(LOG_ERR, "failed to load plugins");
     }
+    if (init_trap_log()) {
+        syslog(LOG_ERR, "failed to initialize trap log");
+    }
 
     /* drop privileges after creating queues and sockets */
     if (getuid() == 0 && get_agent_uid() != -1 && get_agent_gid() != -1) {
@@ -425,6 +429,7 @@ int main(int argc, char **argv)
 
     finish_incoming_handler();
     finish_notification_handler();
+    finish_trap_log();
     finish_ctl_handler();
     finish_cache();
     finish_mib_tree();

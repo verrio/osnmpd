@@ -43,7 +43,7 @@ AC_DEFINE_UNQUOTED([GIT_DATE], ["$GIT_DATE"], [git commit date])
 
 m4_pattern_allow([AM_PROG_AR])
 if test -z "$CFLAGS"; then
-	CFLAGS="-Os -fomit-frame-pointer -Wall -Wunreachable-code -Wpointer-arith -Werror"
+	CFLAGS="-g -Os -Wall -Wunreachable-code -Wpointer-arith -Werror"
 fi
 AM_PROG_AR
 AC_PROG_CC
@@ -76,6 +76,7 @@ AC_COMPILE_IFELSE(
 )
 AC_SUBST(OPENSSL_LIB, [-l${openssl_lib}])
 AC_CHECK_LIB([config],[config_read_file],[],[AC_MSG_ERROR([libconfig library not found])],[])
+AC_CHECK_LIB([z],[inflate],[],[AC_MSG_ERROR([zlib library not found])],[])
 
 AC_MSG_CHECKING([whether serial number is to be used])
 AC_ARG_ENABLE(serial-number,

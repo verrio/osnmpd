@@ -27,9 +27,14 @@
 #include "snmp-mib/mib-module.h"
 
 /**
- * SNMP-NOTIFICATION-MIB (RFC 2573)
- * Contains notification related configuration.
+ * SNMP-NOTIFICATION-MIB (RFC 2573), NOTIFICATION-LOG-MIB (RFC 3014)
+ * Contains notification related configuration and logging.
  */
+
+#define NOTIFICATION_LOG_MIB_OID    SNMP_OID_MIB2,92
+
+extern const char *const notification_log_name;
+extern const char *const notification_filter_name;
 
 /**
  * init_notification_module - creates and initialises a new notification module.
@@ -37,5 +42,29 @@
  * @return pointer to new module on success, NULL on error.
  */
 MibModule *init_notification_module(void);
+
+/**
+ * init_notification_log_module - creates and initialises a new
+ * notification log module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_notification_log_module(void);
+
+/**
+ * init_notification_log_config_module - creates and initialises a new
+ * notification log configuration module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_notification_log_config_module(void);
+
+/**
+ * init_notification_log_stats_module - creates and initialises a new
+ * notification log statistics module.
+ *
+ * @return pointer to new module on success, NULL on error.
+ */
+MibModule *init_notification_log_stats_module(void);
 
 #endif /* SRC_SNMP_MIB_AGENT_NOTIFICATION_MODULE_H_ */

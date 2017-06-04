@@ -27,6 +27,11 @@
 #include "snmp-agent/snmpd.h"
 #include "snmp-core/snmp-crypto.h"
 
+#define ENGINE_ID_MAX_LEN 0x20
+#define USER_NAME_MAX_LEN 0x40
+#define USER_PASSWORD_MIN_LEN 0x8
+#define USER_PASSWORD_MAX_LEN 0x40
+
 typedef struct {
 	int enabled;
 	int confirmed;
@@ -91,6 +96,13 @@ int write_configuration(void);
  * @return cache directory.
  */
 char *get_cache_dir(void);
+
+/**
+ * get_max_log_size - returns the maximum trap log size.
+ *
+ * @return max trap log size.
+ */
+uint32_t get_max_log_size(void);
 
 /**
  * get_uid - returns the daemon UID.

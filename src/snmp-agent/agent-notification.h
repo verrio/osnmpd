@@ -26,6 +26,8 @@
 
 #include <poll.h>
 
+#define MAX_SNMP_NOTIFICATION_SIZE  1024
+
 /**
  * init_notification_handler - initialise the notification handler.
  *

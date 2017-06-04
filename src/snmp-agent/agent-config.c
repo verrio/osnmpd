@@ -56,6 +56,7 @@
 #define KEY_GID		"gid"
 #define KEY_ENGINE_ID	"engine-id"
 #define KEY_CACHE_DIR	"cache-dir"
+#define KEY_LOG_SIZE   "max-log-size"
 #define KEY_TRAP "trap"
 #define KEY_TRAP_ENABLED	"enabled"
 #define KEY_TRAP_CONFIRMED	"confirmed"
@@ -80,11 +81,7 @@
 #define DEFAULT_UID 0
 #define DEFAULT_GID 0
 #define DEFAULT_ENGINE_ID	"AGENT"
-
-#define ENGINE_ID_MAX_LEN 0x20
-#define USER_NAME_MAX_LEN 0x40
-#define USER_PASSWORD_MIN_LEN 0x8
-#define USER_PASSWORD_MAX_LEN 0x40
+#define DEFAULT_LOG_SIZE    5242880
 
 static const char *USERS[] = { "PUBLIC", "READ_ONLY", "READ_WRITE", "ADMIN" };
 static const char *SECURITY_MODELS[] = { "COMMUNITY", "USM", "TSM", "SSH" };
@@ -93,7 +90,7 @@ static const char *DEFAULT_USER_NAMES[] = { "public", "readonly", "readwrite", "
 static const char *TMP_EXTENSION = ".tmp";
 
 /* runtime configuration */
-static char *cache_dir = CACHE_DIR;
+static char *cache_dir = CACHE_DIR "/";
 static char *config_file = CONF_DIR "/snmpd.conf";
 static char **interfaces = NULL;
 static TrapConfiguration trap_configuration;
@@ -104,6 +101,7 @@ static size_t engine_id_len;
 static uint16_t port = DEFAULT_PORT;
 static unsigned int uid = DEFAULT_UID;
 static unsigned int gid = DEFAULT_GID;
+static uint32_t max_log_size = DEFAULT_LOG_SIZE;
 
 static SnmpUserSlot get_user_from_string(char const *user_name)
 {
@@ -420,14 +418,28 @@ int load_configuration(void)
     if (config_lookup_string(&agent_cfg,
         KEY_AGENT KEY_SEPARATOR KEY_CACHE_DIR, &str) == CONFIG_TRUE) {
         struct stat cache_stat;
-        cache_dir = strdup(str);
-        if (cache_dir == NULL || stat(cache_dir, &cache_stat) != 0
+        cache_dir = malloc(strlen(str) + 2);
+        if (cache_dir != NULL) {
+            strcpy(cache_dir, str);
+            cache_dir[strlen(str)] = '/';
+            cache_dir[strlen(str) + 1] = '\0';
+        }
+        if (cache_dir == NULL || stat(str, &cache_stat) != 0
             || !S_ISDIR(cache_stat.st_mode)) {
             ret_val = -1;
             syslog(LOG_ERR, "failed to access cache directory");
         }
     } else {
         syslog(LOG_DEBUG, "using default cache directory %s.", cache_dir);
+    }
+
+    /* fetch max log size */
+    int log_override;
+    if (config_lookup_int(&agent_cfg, KEY_AGENT KEY_SEPARATOR
+        KEY_LOG_SIZE, &log_override) == CONFIG_TRUE) {
+        max_log_size = log_override;
+    } else {
+        max_log_size = DEFAULT_LOG_SIZE;
     }
 
     /* fetch engine ID */
@@ -789,6 +801,11 @@ int write_configuration(void)
 char *get_cache_dir(void)
 {
     return cache_dir;
+}
+
+uint32_t get_max_log_size(void)
+{
+    return max_log_size;
 }
 
 int get_agent_uid(void)

@@ -278,6 +278,21 @@ static int add_generic_arguments(const agent_notification *notification,
                 break;
             }
 
+            case TAG_ENUMERATED: {
+                var_binding->type = SMI_TYPE_INTEGER_32;
+                var_binding->value.integer = decode_INTEGER(&tlv);
+                break;
+            }
+
+            case TAG_OID: {
+                var_binding->type = SMI_TYPE_OID;
+                if (decode_OID(&tlv, &var_binding->value.oid)) {
+                    syslog(LOG_WARNING, "notification contains illegal OID");
+                    SET_OID(var_binding->value.oid, 0, 0);
+                }
+                break;
+            }
+
             case TAG_OCTETSTRING: {
                 var_binding->type = SMI_TYPE_OCTET_STRING;
                 var_binding->value.octet_string.octets = tlv.value;

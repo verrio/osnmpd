@@ -2,12 +2,11 @@
 - don't block on DNS resolving
 - do some proper unit testing
 - do some fuzzing
-- allow remotely changing the passwords
 - expose file system statistics somehow
-- add notification log
 - add ENTITY-MIB
 - add TUNNEL-MIB
 - add IP-FORWARD-MIB
 - add GPS-MIB
 - add SCTP-MIB
+- add NTP-MIB
 

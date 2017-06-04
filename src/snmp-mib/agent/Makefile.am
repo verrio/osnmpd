@@ -11,7 +11,8 @@ libsnmp_mib_agent_la_SOURCES = \
 	snmpv2-module.h snmpv2-module.c \
 	snmp-stats-module.h snmp-stats-module.c \
 	notification-module.h notification-module.c \
-	target-module.h target-module.c \
+	notification-log-module.c notification-log-config-module.c \
+	notification-log-stats-module.c target-module.h target-module.c \
 	snmp-agent-descriptor.h snmp-agent-descriptor.c \
 	ucd-version-module.h ucd-version-module.c \
 	vacm-access-module.h vacm-access-module.c \

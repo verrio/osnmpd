@@ -48,12 +48,12 @@ coverage/
 .settings/
 test-driver
 Debug/
-src/osnmpd
+src/snmpd
 src/tests/pdu-tests
 src/tests/event-tests
 src/tests/ctl-tests
 dh.param
-conf/osnmpd
+conf/snmpd
 conf/snmpd.conf
-doc/osnmpd.8
+doc/snmpd.8
 TODO.local

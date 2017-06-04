@@ -12,13 +12,13 @@ SUFFIXES = .in
 
 EXTRA_DIST = \
 	snmpd.conf.in \
-	osnmpd.in
+	snmpd.in
 
 CLEANFILES = \
 	snmpd.conf \
-	osnmpd
+	snmpd
 
 conf_DATA = ./snmpd.conf
 init_ddir = $(sysconfdir)/init.d
-init_d_SCRIPTS = ./osnmpd
+init_d_SCRIPTS = ./snmpd
 

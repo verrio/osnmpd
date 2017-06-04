@@ -4,8 +4,8 @@
 # $Id$
 
 name="SNMP agent"
-pidfile="@SNMP_RUN@/osnmpd.pid"
-command="@SNMP_BIN@/osnmpd"
+pidfile="@SNMP_RUN@/snmpd.pid"
+command="@SNMP_BIN@/snmpd"
 command_args="${EXTRA_OPTS}"
 start_stop_daemon_args="--pidfile ${pidfile}"
 

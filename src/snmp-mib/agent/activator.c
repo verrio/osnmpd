@@ -49,6 +49,9 @@ static void load_plugin(void)
     add_module(init_snmpv2_set_module, "snmpSet");
     add_module(init_snmp_stats_module, "snmpGroup");
     add_module(init_notification_module, "snmpNotification");
+    add_module(init_notification_log_module, "snmpNotificationLog");
+    add_module(init_notification_log_config_module, "snmpNotificationLogConfig");
+    add_module(init_notification_log_stats_module, "snmpNotificationLogStats");
     add_module(init_target_module, "snmpTarget");
     add_module(init_ucd_version_module, "UCD version");
     add_module(init_vacm_access_module, "vacmAccessTable");

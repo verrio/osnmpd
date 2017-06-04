@@ -24,9 +24,10 @@ Dependencies:
 - Linux kernel 3.x or higher (for IP statistics and non-POSIX compliant message queue use)
 - OpenSSL (libcrypto)
 - libconfig
+- zlib
 - pcscd (if smartcard support is enabled)
-- libsensors (if sensor module is enabled)
-- NUT (if UPS module is enabled)
+
+MIB modules can drag in additional dependencies when enabled.
 
 ## Configuration
 
@@ -39,7 +40,7 @@ Configuration changes emitted via the control interface overwrite this file.
 Start and use the SNMP agent like any normal daemon process
 
 ```sh
-/etc/init.d/osnmpd {start,stop,restart}
+/etc/init.d/snmpd {start,stop,restart}
 ```
 
 The agent uses the UDP transport layer, binding on port 161 by default.  The maximum PDU size is restricted to 1280 to avoid fragmentation on the network layer.  Some corporate networks like to block ICMP and/or fragmented packets, which leads to all kinds of frustrating troubleshooting sessions.  There is a special place in hell for people who enforce such firewall rules, but until justice is served, fragmentation should be avoided.
@@ -89,6 +90,7 @@ This module contains all attributes relating to the SNMP agent itself: counters,
 - SNMP-FRAMEWORK-MIB
 - SNMP-MPD-MIB
 - SNMP-NOTIFICATION-MIB
+- NOTIFICATION-LOG-MIB
 - SNMP-TARGET-MIB
 - SNMP-USER-BASED-SM-MIB
 - SNMP-USM-DH-OBJECTS-MIB
