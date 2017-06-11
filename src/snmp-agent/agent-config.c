@@ -81,7 +81,7 @@
 #define DEFAULT_UID 0
 #define DEFAULT_GID 0
 #define DEFAULT_ENGINE_ID	"AGENT"
-#define DEFAULT_LOG_SIZE    5242880
+#define DEFAULT_LOG_SIZE    4194304
 
 static const char *USERS[] = { "PUBLIC", "READ_ONLY", "READ_WRITE", "ADMIN" };
 static const char *SECURITY_MODELS[] = { "COMMUNITY", "USM", "TSM", "SSH" };

@@ -49,6 +49,38 @@
 #include "snmp-core/tinyber.h"
 #include "snmp-core/utils.h"
 
+/**
+ * The notification log consists of fixed header followed by multiple compressed
+ * chunks of 4K, containing up to 0x500 events each.  Each chunk contains
+ * a variable binding mask for easier traversal.  New entries are appended
+ * in circular (FIFO) fashion.
+ *
+ * log header format:
+ * +-------+---------+-----------+------------------+-------------+
+ * | magic | version | engine id | number of chunks | header size |
+ * +-------+---------+-----------+------------------+-------------+
+ * +-------------------------+-------------------------+----------+
+ * | chunk index of log head | chunk index of log tail | checksum |
+ * +-------------------------+-------------------------+----------+
+ * +---------+---------...---------+
+ * | padding | optional debug info |
+ * +---------+---------...---------+
+ *
+ * chunk format:
+ * +-----------+----------+------------------+-----...-----+
+ * | entry cnt | var mask | len (compressed) |   entries   |
+ * +-----------+----------+------------------+-----...-----+
+ *
+ * the entries are deflated before storing to flash
+ *
+ * chunk entry format:
+ * +----------+--------------+-----------+---------+-------...-----+-----+
+ * | var mask | agent uptime | timestamp | var cnt | var bindings  | len |
+ * +----------+--------------+-----------+---------+-------...-----+-----+
+ *
+ * length tag at the end for reverse traversal.
+ */
+
 #define LOG_FILE       "trap.log"
 #define LOG_MAGIC      "OSNMP-TRAP-LOG"
 #define LOG_VERSION    0x01
@@ -56,7 +88,7 @@
 #define HEAD_TOP       76
 #define MIN_LOG_SIZE   32768
 #define MAX_LOG_SIZE   20971520
-#define CHUNK_SIZE     8192
+#define CHUNK_SIZE     4096
 #define MAX_COMPRESS   4
 #define ZLIB_CMF       0x68
 #define ZLIB_FLG       0x81
@@ -115,7 +147,7 @@ typedef struct {
     uint16_t *chunk_vars;
     int16_t cur_chunk;
     size_t chunk_len;
-    uint8_t chunk_buf[CHUNK_SIZE << 3];
+    uint8_t chunk_buf[CHUNK_SIZE << 5];
     int log_file;
 } TrapLog;
 
@@ -136,26 +168,33 @@ int init_trap_log(void)
 {
     uint32_t log_size = get_max_log_size();
     if (log_size < MIN_LOG_SIZE) {
-        syslog(LOG_WARNING, "log size %"PRIu32" too small", log_size);
-        log_size = MIN_LOG_SIZE;
+        syslog(LOG_WARNING, "notification log disabled");
+        log_size = 0;
     } else if (log_size > MAX_LOG_SIZE) {
         syslog(LOG_WARNING, "log size %"PRIu32" too large", log_size);
         log_size = MAX_LOG_SIZE;
     }
 
     trap_log.discarded = 0;
-    trap_log.num_of_chunks = (log_size - HEADER_SIZE) / CHUNK_SIZE;
+    trap_log.num_of_chunks = log_size == 0 ? 0 : (log_size - HEADER_SIZE) / CHUNK_SIZE;
     trap_log.chunk_head = 0;
     trap_log.chunk_tail = 0;
     trap_log.log_file = -1;
     trap_log.cur_chunk = -1;
     trap_log.chunk_len = 0;
-    trap_log.chunk_vars = calloc(trap_log.num_of_chunks, sizeof(uint16_t));
-    trap_log.chunks = calloc(trap_log.num_of_chunks, sizeof(int16_t));
-    if (trap_log.chunks == NULL || trap_log.chunk_vars == NULL)
-        return -1;
-    memset(trap_log.chunks, 0xff, trap_log.num_of_chunks * sizeof(uint16_t));
-    return trap_log_open(&trap_log);
+
+    if (trap_log.num_of_chunks == 0) {
+        trap_log.chunk_vars = NULL;
+        trap_log.chunks = NULL;
+        return 0;
+    } else {
+        trap_log.chunk_vars = calloc(trap_log.num_of_chunks, sizeof(uint16_t));
+        trap_log.chunks = calloc(trap_log.num_of_chunks, sizeof(int16_t));
+        if (trap_log.chunks == NULL || trap_log.chunk_vars == NULL)
+            return -1;
+        memset(trap_log.chunks, 0xff, trap_log.num_of_chunks * sizeof(uint16_t));
+        return trap_log_open(&trap_log);
+    }
 }
 
 int finish_trap_log(void)
@@ -172,6 +211,10 @@ int finish_trap_log(void)
 
 int store_new_log_entry(const SnmpScopedPDU *const scoped_pdu)
 {
+    if (trap_log.num_of_chunks == 0) {
+        syslog(LOG_DEBUG, "notification log disabled.");
+        return 0;
+    }
     if (load_cur_chunk(&trap_log, trap_log.chunk_head))
         return -1;
     int16_t tmp_entries = trap_log.chunks[trap_log.cur_chunk];
@@ -182,11 +225,9 @@ int store_new_log_entry(const SnmpScopedPDU *const scoped_pdu)
         goto next_chunk;
     if (ret < 0)
         return -1;
-
     ret = write_cur_chunk(&trap_log);
     if (ret == CHUNK_FULL)
         goto next_chunk;
-
     return ret;
 next_chunk:
     trap_log.chunks[trap_log.cur_chunk] = tmp_entries;
@@ -211,6 +252,11 @@ next_chunk:
 
 int get_trap_entry(uint32_t index, SMIType var_filter, LoggedTrapEntry *dst)
 {
+    if (trap_log.num_of_chunks == 0) {
+        syslog(LOG_DEBUG, "notification log disabled.");
+        return -1;
+    }
+
     if (index) index--;
     uint32_t acc = 0;
     uint16_t chunk = trap_log.chunk_head;
@@ -454,11 +500,6 @@ static int write_header(TrapLog *log, int meta_data)
     return 0;
 }
 
-/**
- * +-----------+----------+---------+-----...-----+
- * | entry_cnt | var_mask | cmp_len |   entries   |
- * +-----------+----------+---------+-----...-----+
- */
 static int write_cur_chunk(TrapLog *log)
 {
     int ret = 0;
@@ -479,33 +520,31 @@ static int write_cur_chunk(TrapLog *log)
     uint8_t out_buf[CHUNK_SIZE];
     strm.avail_out = CHUNK_SIZE - 6;
     strm.next_out = out_buf + 6;
+    ret = deflate(&strm, Z_FINISH);
 
-    while (1) {
-        ret = deflate(&strm, Z_FINISH);
-        if (ret == Z_STREAM_END) {
-            WRITE_UINT16(out_buf, 0, log->chunks[log->cur_chunk]);
-            WRITE_UINT16(out_buf, 2, log->chunk_vars[log->cur_chunk]);
-            WRITE_UINT16(out_buf, 4, strm.total_out);
+    if (ret == Z_STREAM_END) {
+        WRITE_UINT16(out_buf, 0, log->chunks[log->cur_chunk]);
+        WRITE_UINT16(out_buf, 2, log->chunk_vars[log->cur_chunk]);
+        WRITE_UINT16(out_buf, 4, strm.total_out);
 
-            int offset = 0;
-            int rem = strm.total_out + 6;
-            while (rem > 0) {
-                ssize_t written = pwrite(log->log_file, &out_buf[offset], rem,
-                        HEADER_SIZE + CHUNK_SIZE * log->cur_chunk + offset);
-                if (written <= 0) {
-                    ret = -1;
-                    break;
-                }
-                rem -= written;
-                offset += written;
+        int offset = 0;
+        int rem = strm.total_out + 6;
+        while (rem > 0) {
+            ssize_t written = pwrite(log->log_file, &out_buf[offset], rem,
+                    HEADER_SIZE + CHUNK_SIZE * log->cur_chunk + offset);
+            if (written <= 0) {
+                ret = -1;
+                break;
             }
-            ret = 0;
-            break;
-        } else if ((ret == Z_OK || ret == Z_BUF_ERROR) && strm.avail_out == 0) {
-            ret = CHUNK_FULL;
-        } else {
-            ret = -1;
+            rem -= written;
+            offset += written;
         }
+        ret = 0;
+    } else if ((ret == Z_OK || ret == Z_BUF_ERROR) && strm.avail_out == 0) {
+        ret = CHUNK_FULL;
+    } else {
+        syslog(LOG_ERR, "failed to compress notification log block : return code %i\n", ret);
+        ret = -1;
     }
 
     deflateEnd(&strm);
@@ -556,7 +595,7 @@ static int load_cur_chunk(TrapLog *log, uint16_t chunk)
 
     strm.avail_in = len;
     strm.next_in = in_buf + 6;
-    strm.avail_out = CHUNK_SIZE << 3;
+    strm.avail_out = CHUNK_SIZE << 5;
     strm.next_out = log->chunk_buf;
 
     do {
@@ -670,16 +709,11 @@ static int chunk_var_match(TrapLog *log, uint16_t chunk, SMIType type)
     return log->chunk_vars[chunk] & get_var_filter(type);
 }
 
-/**
- * +----------+--------+-----------+---------+-------...-----+-----+
- * | var_mask | uptime | timestamp | var_cnt | var_bindings  | len |
- * +----------+--------+-----------+---------+-------...-----+-----+
- */
 static int append_trap(TrapLog *log, const SnmpScopedPDU *const scoped_pdu)
 {
     if (log->cur_chunk == -1)
         return -1;
-    if (log->chunks[log->cur_chunk] >= 0x2000)
+    if (log->chunks[log->cur_chunk] >= 0x500)
         return CHUNK_FULL;
 
     uint16_t var_mask = 0;
