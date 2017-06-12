@@ -24,6 +24,7 @@ libsnmp_mib_system_la_LDFLAGS = \
 	-no-undefined -avoid-version -shared -fPIC
 
 AM_CPPFLAGS = \
+        -I$(top_srcdir)/src \
         -I$(top_srcdir)/src/snmp-core \
         -I$(top_srcdir)/src/snmp-agent \
         -I$(top_srcdir)/src/snmp-mib

@@ -1,1 +1,1 @@
-SUBDIRS = agent ip java-subagent location power sensors system 
+SUBDIRS = agent ip java-subagent power sensors system 

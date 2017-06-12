@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,8 +35,8 @@
 #include "snmp-core/utils.h"
 #include "snmp-core/snmp-types.h"
 #include "snmp-mib/single-level-module.h"
-#include "snmp-mib/ip/ip-address-cache.h"
 #include "snmp-mib/ip/ip-cache.h"
+#include "snmp-mib/ip/socket-cache.h"
 #include "snmp-mib/ip/sctp-module.h"
 
 #define SCTP_STATS_OID        SNMP_OID_SCTP_OBJECTS,1
@@ -75,112 +75,99 @@ enum SCTPStatsMIBObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
        SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
+    SocketStats *stats = get_socket_stats();
+    if (stats == NULL) {
+        return GENERAL_ERROR;
+    }
+
     switch (id) {
         case SCTP_CURR_ESTAB: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, LOWER_HALF(stats->sctp_curr_estab));
             break;
         }
 
         case SCTP_ACTIVE_ESTABS: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_active_estabs));
             break;
         }
 
         case SCTP_PASSIVE_ESTABS: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_passive_estabs));
             break;
         }
 
         case SCTP_ABORTEDS: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_aborteds));
             break;
         }
 
         case SCTP_SHUTDOWNS: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_shutdowns));
             break;
         }
 
         case SCTP_OUT_OF_BLUES: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_out_of_blues));
             break;
         }
 
         case SCTP_CHECKSUM_ERRORS: {
-            /* TODO */
-            SET_UNSIGNED_BIND(binding, 0);
+            SET_UNSIGNED_BIND(binding, LOWER_HALF(stats->sctp_checksum_errors));
             break;
         }
 
         case SCTP_OUT_CTRL_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_out_ctrl_chunks);
             break;
         }
 
         case SCTP_OUT_ORDER_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_out_order_chunks);
             break;
         }
 
         case SCTP_OUT_UNORDER_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_out_unorder_chunks);
             break;
         }
 
         case SCTP_IN_CTRL_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_in_ctrl_chunks);
             break;
         }
 
         case SCTP_IN_ORDER_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_in_order_chunks);
             break;
         }
 
         case SCTP_IN_UNORDER_CHUNKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_in_unorder_chunks);
             break;
         }
 
         case SCTP_FRAG_USR_MSGS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_frag_usr_msgs);
             break;
         }
 
         case SCTP_REASM_USR_MSGS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_reasm_usr_msgs);
             break;
         }
 
         case SCTP_OUT_SCTP_PACKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_out_sctp_packs);
             break;
         }
 
         case SCTP_IN_SCTP_PACKS: {
-            /* TODO */
-            SET_UNSIGNED64_BIND(binding, 0);
+            SET_UNSIGNED64_BIND(binding, stats->sctp_in_sctp_packs);
             break;
         }
 
         case SCTP_DISCONTINUITY_TIME: {
-            /* TODO */
-            SET_TIME_TICKS_BIND(binding, 0);
+            SET_TIME_TICKS_BIND(binding, LOWER_HALF(stats->sctp_discontinuity_time));
             break;
         }
     }

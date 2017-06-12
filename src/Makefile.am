@@ -32,9 +32,10 @@ snmpd_LDFLAGS = \
 	-Wl,--gc-sections
 
 AM_CPPFLAGS = \
+	-I$(top_srcdir)/src \
 	-I$(top_srcdir)/src/snmp-core \
 	-I$(top_srcdir)/src/snmp-agent \
 	-I$(top_srcdir)/src/snmp-mib
 
 install-exec-hook:
-	find $(plugindir) -type f -name \*.la -delete
+	find $(DESTDIR)$(plugindir) -type f -name \*.la -delete

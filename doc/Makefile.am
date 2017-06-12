@@ -1,5 +1,5 @@
-osnmp_mib_dir = $(datadir)/snmp/mib
-osnmp_mib__DATA = ./mib/*
+osnmp_mibs_dir = $(datadir)/snmp/mibs
+osnmp_mibs__DATA = $(top_srcdir)/doc/mib/*
 
 SUFFIXES = .in
 
@@ -13,12 +13,12 @@ SUFFIXES = .in
 		-e 's|@SNMP_CACHE[@]|$(cachedir)|g' \
 		< $< > $@
 
-man8_MANS = ./snmpd.8
+man8_MANS = snmpd.8
 
 EXTRA_DIST = \
-	./mib/* \
-	./snmpd.8.in
+	mib/* \
+	snmpd.8.in
 
 CLEANFILES = \
-	./snmpd.8
+	snmpd.8
 

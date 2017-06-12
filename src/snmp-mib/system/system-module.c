@@ -24,10 +24,14 @@
 #include <stddef.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <pwd.h>
+#include <gps.h>
+#include <math.h>
 
 #include "config.h"
 #include "snmp-agent/mib-tree.h"
@@ -40,6 +44,24 @@
 /* indication of the set of services that this entity may potentially offer */
 #define SYS_SERVICES_ROUTER      (2 << (3-1))
 #define SYS_SERVICES_APPLICATION (2 << (4-1)) + (2 << (7-1))
+
+/* gpsd shared memory segment */
+#define GPSD_KEY    0x47505344  /* "GPSD" */
+
+/* gpsd memory barrier */
+static /*@unused@*/ inline void gpsd_barrier(void) {
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+#ifndef S_SPLINT_S
+        asm volatile("mfence");
+#endif /* S_SPLINT_S */
+#endif /* defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)) */
+}
+
+typedef struct {
+    int bookend1;
+    struct gps_data_t gpsdata;
+    int bookend2;
+} gpsd_shmexport_t;
 
 static const char *location_file = "/etc/location";
 static const char *ip4_forwarding = "/proc/sys/net/ipv4/conf/all/forwarding";
@@ -74,6 +96,72 @@ enum SysORTableColumns {
     SYS_OR_COL_DESCR = 3,
     SYS_OR_COL_UPTIME = 4
 };
+
+static SnmpErrorStatus get_location(SnmpVariableBinding *binding)
+{
+    binding->value.octet_string.octets = NULL;
+    binding->value.octet_string.len = 0;
+    binding->type = SMI_TYPE_OCTET_STRING;
+
+    if(access(location_file, F_OK) != -1) {
+        if (read_from_file(location_file, &binding->value.octet_string.octets,
+                &binding->value.octet_string.len)) {
+            return GENERAL_ERROR;
+        }
+        return NO_ERROR;
+    }
+
+    int shmid = shmget((key_t)GPSD_KEY, sizeof(struct gps_data_t), 0);
+    if (shmid == -1)
+        return NO_ERROR;
+
+    volatile gpsd_shmexport_t *gpsd_shared = (gpsd_shmexport_t *) shmat(shmid, 0, 0);
+    if (gpsd_shared == NULL)
+        return GENERAL_ERROR;
+
+    int cpy = 0;
+    struct gps_data_t gps_data;
+    for (int i = 0; i < 4; i++) {
+        int before = gpsd_shared->bookend1;
+        gpsd_barrier();
+        memcpy((void *) &gps_data,
+            (void *) &gpsd_shared->gpsdata, sizeof(struct gps_data_t));
+        gpsd_barrier();
+        int after = gpsd_shared->bookend2;
+        if (before == after) {
+            cpy = 1;
+            break;
+        }
+    }
+
+    shmdt((const void *) gpsd_shared);
+    if (!cpy)
+        return RESOURCE_UNAVAILABLE;
+
+    char location_buf[512];
+    switch (gps_data.fix.mode) {
+        case MODE_2D: {
+            snprintf(location_buf, sizeof(location_buf), "(%.6f° %c, %.6f° %c)",
+                fabs(gps_data.fix.latitude), gps_data.fix.latitude > 0 ? 'N' : 'S',
+                fabs(gps_data.fix.longitude), gps_data.fix.longitude > 0 ? 'E' : 'W');
+            break;
+        }
+
+        case MODE_3D: {
+            snprintf(location_buf, sizeof(location_buf), "(%.6f° %c, %.6f° %c, %.6fm)",
+                fabs(gps_data.fix.latitude), gps_data.fix.latitude > 0 ? 'N' : 'S',
+                fabs(gps_data.fix.longitude), gps_data.fix.longitude > 0 ? 'E' : 'W',
+                fabs(gps_data.fix.altitude));
+            break;
+        }
+
+        default: {
+            snprintf(location_buf, sizeof(location_buf), "no gps data available");
+        }
+    }
+    SET_OCTET_STRING_RESULT(binding, strdup(location_buf), strlen(location_buf));
+    return NO_ERROR;
+}
 
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         SingleLevelMibModule, int id, SnmpVariableBinding *binding)
@@ -125,17 +213,7 @@ DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
         }
 
         case SYS_LOCATION: {
-            binding->value.octet_string.octets = NULL;
-            binding->value.octet_string.len = 0;
-
-            if(access(location_file, F_OK) != -1 &&
-               read_from_file(location_file, &binding->value.octet_string.octets,
-                    &binding->value.octet_string.len)) {
-                return GENERAL_ERROR;
-            }
-
-            binding->type = SMI_TYPE_OCTET_STRING;
-            break;
+            return get_location(binding);
         }
 
         case SYS_SERVICES: {

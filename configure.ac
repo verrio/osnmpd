@@ -77,6 +77,7 @@ AC_COMPILE_IFELSE(
 AC_SUBST(OPENSSL_LIB, [-l${openssl_lib}])
 AC_CHECK_LIB([config],[config_read_file],[],[AC_MSG_ERROR([libconfig library not found])],[])
 AC_CHECK_LIB([z],[inflate],[],[AC_MSG_ERROR([zlib library not found])],[])
+AC_CHECK_HEADERS([gps.h],[],[AC_MSG_ERROR([gpsd header not found])],[])
 
 AC_MSG_CHECKING([whether serial number is to be used])
 AC_ARG_ENABLE(serial-number,
@@ -187,14 +188,6 @@ AC_ARG_WITH(mib-power,
 AC_MSG_RESULT(${enable_mib_power})
 AM_CONDITIONAL([ENABLE_MIB_POWER], [test "${enable_mib_power}" = "yes"])
 
-AC_MSG_CHECKING([whether the location MIB is to be compiled in])
-AC_ARG_WITH(mib-location,
-	[  --with-mib-location     Include location MIB module],
-	enable_mib_location=$withval,
-	enable_mib_location="yes")
-AC_MSG_RESULT(${enable_mib_location})
-AM_CONDITIONAL([ENABLE_MIB_LOCATION], [test "${enable_mib_location}" = "yes"])
-
 AC_MSG_CHECKING([whether the IP MIB is to be compiled in])
 AC_ARG_WITH(mib-ip,
 	[  --with-mib-ip           Include IP MIB module],
@@ -268,7 +261,6 @@ AC_CONFIG_FILES([
 	src/snmp-mib/system/Makefile
 	src/snmp-mib/power/Makefile
 	src/snmp-mib/sensors/Makefile
-	src/snmp-mib/location/Makefile
 	src/snmp-mib/ip/Makefile
 	src/snmp-mib/java-subagent/Makefile
 	src/tests/Makefile
@@ -302,7 +294,6 @@ cat << EOF
   include power module ............ : ${enable_mib_power}
   include IP module ............... : ${enable_mib_ip}
   include sensors module .......... : ${enable_mib_sensors}
-  include location module ......... : ${enable_mib_location}
   include Java subagent module .... : ${enable_mib_java_subagent}
 
 EOF

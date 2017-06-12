@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,8 +35,8 @@
 #include "snmp-core/utils.h"
 #include "snmp-core/snmp-types.h"
 #include "snmp-mib/single-level-module.h"
-#include "snmp-mib/ip/ip-address-cache.h"
 #include "snmp-mib/ip/ip-cache.h"
+#include "snmp-mib/ip/socket-cache.h"
 #include "snmp-mib/ip/sctp-module.h"
 
 #define SCTP_PARAM_OID        SNMP_OID_SCTP_OBJECTS,2
@@ -54,46 +54,44 @@ enum SCTPParamsMIBObjects {
 DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
        SingleLevelMibModule, int id, SnmpVariableBinding *binding)
 {
+    SocketStats *stats = get_socket_stats();
+    if (stats == NULL) {
+        return GENERAL_ERROR;
+    }
+
     switch (id) {
         case SCTP_RTO_ALGORITHM: {
-            /* TODO */
-            SET_INTEGER_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, stats->sctp_rto_algo);
             break;
         }
 
         case SCTP_RTO_MIN: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, stats->sctp_rto_min);
             break;
         }
 
         case SCTP_RTO_MAX: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, stats->sctp_rto_max);
             break;
         }
 
         case SCTP_RTO_INITIAL: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, stats->sctp_rto_initial);
             break;
         }
 
         case SCTP_MAX_ASSOCS: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_INTEGER_BIND(binding, stats->sctp_max_assocs);
             break;
         }
 
         case SCTP_VAL_COOKIE_LIFE: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, stats->sctp_val_cookie_life);
             break;
         }
 
         case SCTP_MAX_INIT_RETR: {
-            /* TODO */
-            SET_GAUGE_BIND(binding, 0);
+            SET_GAUGE_BIND(binding, stats->sctp_max_init_retr);
             break;
         }
     }

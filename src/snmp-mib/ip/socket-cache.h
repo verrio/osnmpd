@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,12 +33,17 @@ enum TransportType {
     TRANSPORT_SCTP
 };
 
-enum RtoAlgorithm {
-    RTO_ALGO_OTHER = 1,
-    RTO_ALGO_CONSTANT = 2,
-    RTO_ALGO_RSRE = 3,
-    RTO_ALGO_VANJ = 4,
-    RTO_ALGO_RFC2988 = 5,
+enum TCPRtoAlgorithm {
+    TCP_RTO_ALGO_OTHER = 1,
+    TCP_RTO_ALGO_CONSTANT = 2,
+    TCP_RTO_ALGO_RSRE = 3,
+    TCP_RTO_ALGO_VANJ = 4,
+    TCP_RTO_ALGO_RFC2988 = 5,
+};
+
+enum SCTPRtoAlgorithm {
+    SCTP_RTO_ALGO_OTHER = 1,
+    SCTP_RTO_ALGO_VANJ = 2
 };
 
 enum TCPState {
@@ -58,6 +63,7 @@ enum TCPState {
 
 typedef struct {
     enum IpAddressFamily family;
+    uint32_t assoc;
     uint8_t local[16];
     uint8_t remote[16];
     uint16_t local_port;
@@ -75,7 +81,8 @@ typedef struct {
     SocketEntry **udp_arr;
     size_t udp_len;
     size_t udp_max;
-    enum RtoAlgorithm tcp_rto_algo;
+
+    enum TCPRtoAlgorithm tcp_rto_algo;
     uint32_t tcp_rto_min;
     uint32_t tcp_rto_max;
     int32_t tcp_max_conn;
@@ -92,6 +99,35 @@ typedef struct {
     SocketEntry **tcp_arr;
     size_t tcp_len;
     size_t tcp_max;
+
+    uint64_t sctp_curr_estab;
+    uint64_t sctp_active_estabs;
+    uint64_t sctp_passive_estabs;
+    uint64_t sctp_aborteds;
+    uint64_t sctp_shutdowns;
+    uint64_t sctp_out_of_blues;
+    uint64_t sctp_checksum_errors;
+    uint64_t sctp_out_ctrl_chunks;
+    uint64_t sctp_out_order_chunks;
+    uint64_t sctp_out_unorder_chunks;
+    uint64_t sctp_in_ctrl_chunks;
+    uint64_t sctp_in_order_chunks;
+    uint64_t sctp_in_unorder_chunks;
+    uint64_t sctp_frag_usr_msgs;
+    uint64_t sctp_reasm_usr_msgs;
+    uint64_t sctp_out_sctp_packs;
+    uint64_t sctp_in_sctp_packs;
+    uint64_t sctp_discontinuity_time;
+    enum SCTPRtoAlgorithm sctp_rto_algo;
+    uint32_t sctp_rto_min;
+    uint32_t sctp_rto_max;
+    uint32_t sctp_rto_initial;
+    int      sctp_max_assocs;
+    uint32_t sctp_val_cookie_life;
+    uint32_t sctp_max_init_retr;
+    SocketEntry **sctp_arr;
+    size_t sctp_len;
+    size_t sctp_max;
 } SocketStats;
 
 /**

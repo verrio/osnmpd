@@ -234,12 +234,13 @@ static int add_var_bindings(uint16_t trap_code_1, uint16_t trap_code_2,
     }
 
     /* generic enterprise OID consists of
-     * <trap_notification_oid>.<trap_code_1>.<trap_code_2> */
+     * <trap_notification_oid>.<trap_code_1>.<trap_code_2>.1 */
     memcpy(binding->value.oid.subid, trap_notification_oid,
             sizeof(trap_notification_oid));
     binding->value.oid.len = trap_notification_oid_len;
     binding->value.oid.subid[binding->value.oid.len++] = trap_code_1;
     binding->value.oid.subid[binding->value.oid.len++] = trap_code_2;
+    binding->value.oid.subid[binding->value.oid.len++] = 1;
     return add_generic_arguments(NULL, buf, scoped_pdu);
 }
 

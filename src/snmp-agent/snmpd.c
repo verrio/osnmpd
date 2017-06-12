@@ -142,7 +142,7 @@ static void accept_loop()
 
 static int load_plugins(void)
 {
-    if (access(plugin_dir, W_OK)) {
+    if (access(plugin_dir, R_OK | X_OK)) {
         syslog(LOG_WARNING, "plugin directory not accessible : %s", strerror(errno));
         return -1;
     }
@@ -194,10 +194,10 @@ static void handle_signal(int signal)
     finished = 1;
 }
 
-/* prints a help message to the user.  This function never returns. */
+/* prints a help message to the user; this function never returns */
 static void usage(void)
 {
-    fprintf(stderr, "usage: osnmpd [-qfdv] [-c <config-file>] [-p <plugin-dir>]\n");
+    fprintf(stderr, "usage: snmpd [-qfdv] [-c <config-file>] [-p <plugin-dir>]\n");
     exit(EXIT_SUCCESS);
 }
 
@@ -412,7 +412,7 @@ int main(int argc, char **argv)
         syslog(LOG_ERR, "failed to load plugins");
     }
     if (init_trap_log()) {
-        syslog(LOG_ERR, "failed to initialize trap log");
+        syslog(LOG_ERR, "failed to initialise trap log");
     }
 
     /* drop privileges after creating queues and sockets */

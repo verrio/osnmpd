@@ -3,10 +3,14 @@
 - do some proper unit testing
 - do some fuzzing
 - expose file system statistics somehow
+- expose wifi statistics somehow
 - add ENTITY-MIB
 - add TUNNEL-MIB
 - add IP-FORWARD-MIB
-- add GPS-MIB
 - add SCTP-MIB
 - add NTP-MIB
+- add BRIDGE-MIB
+- add EtherMIB
+- add DNS-SERVER-MIB/DNS-RESOLVER-MIB
+- add DHCP-SERVER-MIB
 

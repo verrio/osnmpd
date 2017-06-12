@@ -108,14 +108,6 @@ This module contains all IP networking related attributes: configured addresses,
 - UDP-MIB
 - SCTP-MIB
 
-#### Location module
-
-This modules contains attributes relating to the physical location of the device, supplied by a gpsd daemon process.  The following MIBs relate to this module:
-
-- GPS-MIB
-
-This module requires a running gpsd daemon.
-
 #### Power module
 
 This module contains power-management related attributes.  This includes the following MIBs:

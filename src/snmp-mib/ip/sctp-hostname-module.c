@@ -1,5 +1,5 @@
 /*
- * This file is part of the osnmpd distribution (https://github.com/verrio/osnmpd).
+ * This file is part of the osnmpd project (https://github.com/verrio/osnmpd).
  * Copyright (C) 2016 Olivier Verriest
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,7 +37,7 @@
 #include "snmp-mib/single-level-module.h"
 #include "snmp-mib/single-table-module.h"
 #include "snmp-mib/ip/ip-address-cache.h"
-#include "snmp-mib/ip/ip-cache.h"
+#include "snmp-mib/ip/socket-cache.h"
 #include "snmp-mib/ip/sctp-module.h"
 
 #define SCTP_HOSTNAME_OID  SNMP_OID_SCTP_OBJECTS,8
@@ -46,11 +46,62 @@ enum SCTPLookupRemHostNameTableColumns {
     SCTP_LOOKUP_REM_HOST_NAME_START_TIME = 1
 };
 
+static void fill_oid_index(OID *oid, SocketEntry *socket)
+{
+    oid->subid[oid->len++] = 0;
+    oid->subid[oid->len++] = socket->assoc;
+}
+
+static SocketEntry *get_socket_entry(SubOID *row, size_t row_len, int next_row)
+{
+    SocketStats *stats = get_socket_stats();
+    if (stats == NULL)
+        return NULL;
+
+    SocketEntry **entry = stats->sctp_arr;
+    size_t len = stats->sctp_len;
+
+    for (int i = 0; i < len; i++) {
+        SocketEntry *socket = entry[i];
+
+        OID oid;
+        oid.len = 0;
+        fill_oid_index(&oid, socket);
+        switch (cmp_index_to_oid(oid.subid, oid.len, row, row_len)) {
+            case -1: {
+                if (next_row) {
+                    return socket;
+                } else {
+                    return NULL;
+                }
+                break;
+            }
+
+            case 0: {
+                if (!next_row) {
+                    return socket;
+                }
+                break;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 DEF_METHOD(get_column, SnmpErrorStatus, SingleTableMibModule, SingleTableMibModule,
     int column, SubOID *row, size_t row_len, SnmpVariableBinding *binding, int next_row)
 {
-    /* TODO */
-    CHECK_INSTANCE_FOUND(next_row, NULL);
+    SocketEntry *socket = get_socket_entry(row, row_len, next_row);
+    CHECK_INSTANCE_FOUND(next_row, socket);
+    SET_TIME_TICKS_BIND(binding, 0);
+
+    if (next_row) {
+        SET_OID(binding->oid, SCTP_HOSTNAME_OID,
+            SCTP_LOOKUP_REM_HOST_NAME_START_TIME, column);
+        fill_oid_index(&binding->oid, socket);
+    }
+    return NO_ERROR;
 }
 
 DEF_METHOD(set_column, SnmpErrorStatus, SingleTableMibModule, SingleTableMibModule,
@@ -75,7 +126,7 @@ MibModule *init_sctp_hostname_module(void)
         return NULL;
     }
 
-    SET_PREFIX(module, SCTP_HOSTNAME_OID, 1, 1);
+    SET_PREFIX(module, SCTP_HOSTNAME_OID, 1);
     SET_OR_ENTRY(module, NULL);
     SET_METHOD(module, MibModule, finish_module);
     SET_METHOD(module, SingleTableMibModule, get_column);

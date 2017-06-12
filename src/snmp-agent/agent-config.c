@@ -215,12 +215,12 @@ static int load_passwords(void)
 
 static void set_default_engine_id(void)
 {
-    engine_id[0] = (ENTERPRISE_NUMBER  >> 24) & 0xff;
+    engine_id[0] = ((ENTERPRISE_NUMBER  >> 24) & 0xff) | 0x80;
     engine_id[1] = (ENTERPRISE_NUMBER  >> 16) & 0xff;
     engine_id[2] = (ENTERPRISE_NUMBER  >> 8) & 0xff;
     engine_id[3] = ENTERPRISE_NUMBER & 0xff;
 #ifdef SERIAL_NUMBER_SUPPORT
-    engine_id[4] = 0x05;
+    engine_id[4] = 0x04;
 
     FILE *command = popen(SERIAL_FETCH_COMMAND, "r");
     if (command == NULL) {
@@ -248,7 +248,6 @@ static void set_default_engine_id(void)
     memset(&engine_id[5], 0, 8);
     engine_id_len = 13;
 #else
-    engine_id[0] |= 0x80;
     engine_id[4] = 0x03;
     engine_id_len = 11;
 
@@ -966,6 +965,8 @@ int set_user_auth_password(SnmpUserSlot user, char *password)
         syslog(LOG_ERR, "failed to update SNMP authentication password");
         return -1;
     }
+
+    user_password_overruled[user] = 0;
 #endif
 
     return 0;
@@ -1013,6 +1014,8 @@ int set_user_priv_password(SnmpUserSlot user, char *password)
         syslog(LOG_ERR, "failed to update SNMP privacy password");
         return -1;
     }
+
+    user_password_overruled[user] = 0;
 #endif
 
     return 0;
