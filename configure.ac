@@ -23,7 +23,7 @@
 
 m4_define([osnmpd_major_version], [1])
 m4_define([osnmpd_minor_version], [0])
-m4_define([osnmpd_micro_version], [0])
+m4_define([osnmpd_micro_version], [1])
 m4_define([osnmpd_version], [osnmpd_major_version.osnmpd_minor_version.osnmpd_micro_version])
 AC_SUBST(VERSION)
 AC_REVISION([m4_esyscmd_s([git describe --long --always])])
