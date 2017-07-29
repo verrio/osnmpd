@@ -328,6 +328,10 @@ static int trap_log_open(TrapLog *log)
         syslog(LOG_ERR, "failed to open trap log : %s", strerror(errno));
         return -1;
     }
+    if (get_agent_uid() != -1 && get_agent_gid() != -1 &&
+        fchown(log->log_file, get_agent_uid(), get_agent_gid())) {
+        syslog(LOG_WARNING, "failed to set trap log owner : %s", strerror(errno));
+    }
 
     off_t size = lseek(log->log_file, 0, SEEK_END);
     if (size < 0) {

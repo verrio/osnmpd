@@ -143,7 +143,7 @@ I like to believe that “no security incidents found” means that it's a safe 
 
 #### Any plans on supporting other transport layers (TCP/SSH/TLS)?
 
-Currently UDP seems the only SNMP transport that works with all clients.  The only drawback is the limited PDU size, but I haven't bumped into a attribute too large to fit in a PDU yet.  I don't know if wiring a packet-based application protocol on top of a stream-based transport layer makes all that much sense either.
+Currently UDP seems the only SNMP transport that works with all clients.  The only drawback is the limited PDU size, but I haven't bumped into an attribute too large to fit in a PDU yet.  I don't know if wiring a packet-based application protocol on top of a stream-based transport layer makes all that much sense either.
 
 #### Why not use Net-SNMP like the rest?
 

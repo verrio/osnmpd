@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/sysinfo.h>
+#include <sys/stat.h>
 
 #include "snmp-agent/agent-cache.h"
 #include "snmp-agent/agent-config.h"
@@ -107,6 +108,10 @@ int init_cache(void)
     fprintf(f, "%"PRIu32"\n", boot_count);
     fflush(f);
     fclose(f);
+    if (get_agent_uid() != -1 && get_agent_gid() != -1 &&
+        chown(file_name, get_agent_uid(), get_agent_gid())) {
+        syslog(LOG_WARNING, "boot counter permission issue : %s", strerror(errno));
+    }
 
     return ret;
 err:
