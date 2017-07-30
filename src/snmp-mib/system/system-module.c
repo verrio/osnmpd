@@ -42,8 +42,8 @@
 #include "snmp-mib/system/system-module.h"
 
 /* indication of the set of services that this entity may potentially offer */
-#define SYS_SERVICES_ROUTER      (2 << (3-1))
-#define SYS_SERVICES_APPLICATION (2 << (4-1)) + (2 << (7-1))
+#define SYS_SERVICES_ROUTER      (1 << (3-1))
+#define SYS_SERVICES_APPLICATION (1 << (4-1)) + (1 << (7-1))
 
 /* gpsd shared memory segment */
 #define GPSD_KEY    0x47505344  /* "GPSD" */

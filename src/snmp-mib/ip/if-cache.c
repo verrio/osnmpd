@@ -507,31 +507,31 @@ static enum IfOperState translate_if_oper_state(int state)
 {
     switch (state) {
         case IF_OPER_NOTPRESENT: {
-            return IF_OPER_NOTPRESENT;
+            return IF_OPER_STATE_NOTPRESENT;
         }
 
         case IF_OPER_DOWN: {
-            return IF_OPER_DOWN;
+            return IF_OPER_STATE_DOWN;
         }
 
         case IF_OPER_LOWERLAYERDOWN: {
-            return IF_OPER_LOWERLAYERDOWN;
+            return IF_OPER_STATE_LOWERLAYERDOWN;
         }
 
         case IF_OPER_TESTING: {
-            return IF_OPER_TESTING;
+            return IF_OPER_STATE_TESTING;
         }
 
         case IF_OPER_DORMANT: {
-            return IF_OPER_DORMANT;
+            return IF_OPER_STATE_DORMANT;
         }
 
         case IF_OPER_UP: {
-            return IF_OPER_UP;
+            return IF_OPER_STATE_UP;
         }
 
         default: {
-            return IF_OPER_UNKNOWN;
+            return IF_OPER_STATE_UNKNOWN;
         }
     }
 }
