@@ -361,7 +361,10 @@ int main(int argc, char **argv)
             exit(EXIT_SUCCESS);
 
         umask(0);
-        if (chdir("/") == -1)
+        char *work_dir = get_cache_dir();
+        if (work_dir == NULL)
+            work_dir = "/tmp";
+        if (chdir(work_dir) == -1)
             goto daemonize_failed;
 
         /* redirect stdio */

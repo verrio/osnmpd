@@ -66,6 +66,50 @@ static SysOREntry java_sub_agent_or_entry = {
 #define SUB_AGENT_GET_NEXT  0xC1
 #define SUB_AGENT_SET   0xC2
 
+static SnmpErrorStatus convert_subagent_result(uint32_t error_code)
+{
+    switch (error_code) {
+        case 0:
+            return NO_ERROR;
+
+        case 2:
+            return WRONG_ENCODING;
+
+        case 4:
+        case 6:
+            return WRONG_TYPE;
+
+        case 5:
+            return WRONG_LENGTH;
+
+        case 7:
+            return WRONG_VALUE;
+
+        case 9:
+            return TOO_BIG;
+
+        case 8:
+        case 13:
+        case 16:
+            return INCONSISTENT_VALUE;
+
+        case 17:
+        case 18:
+            return AUTHORIZATION_ERROR;
+
+        case 3:
+        case 10:
+        case 11:
+        case 12:
+        case 19:
+        case 23:
+            return RESOURCE_UNAVAILABLE;
+
+        default:
+            return GENERAL_ERROR;
+    }
+}
+
 static int create_request(buf_t *request_buffer,
         SnmpVariableBinding *binding, int type, int dry_run)
 {
@@ -218,6 +262,7 @@ static SnmpErrorStatus send_request(SnmpVariableBinding *binding,
     if (response_code != 0) {
         syslog(LOG_DEBUG, "java sub agent responded with error code %u.",
                 (uint32_t) response_code);
+        result = convert_subagent_result((uint32_t) response_code);
         goto result;
     }
 

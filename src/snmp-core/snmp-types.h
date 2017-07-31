@@ -242,6 +242,7 @@ int compare_OID(const OID *o1, const OID *o2);
  * @return 0 on success, -1 on parse error.
  * octet-string (if present) point to the source memory.
  */
+__attribute__((visibility("default")))
 int decode_variable_binding(const asn1raw_t *src, SnmpVariableBinding *binding);
 
 /**
@@ -252,6 +253,7 @@ int decode_variable_binding(const asn1raw_t *src, SnmpVariableBinding *binding);
  *
  * @return 0 on success, -1 on encoding error.
  */
+__attribute__((visibility("default")))
 int encode_variable_binding(const SnmpVariableBinding *binding, buf_t *dst);
 
 /**

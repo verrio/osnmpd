@@ -747,7 +747,9 @@ static int handle_request_notification_config(uint8_t dry_run, buf_t *arguments,
                     TAG_INTEGER, FLAG_UNIVERSAL), "trap port", return -1);
             CHECK_ENC_RESULT(encode_OCTET_STRING(response_buffer,
                     (uint8_t *) current_config->destination,
-                    strlen(current_config->destination)), "trap destination", return -1);
+                    current_config->destination == NULL ? 0 :
+                    strlen(current_config->destination)),
+                    "trap destination", return -1);
             asn1int_t slot = current_config->user;
             CHECK_ENC_RESULT(encode_INTEGER(response_buffer, &slot,
                     TAG_ENUMERATED, FLAG_UNIVERSAL), "trap user slot", return -1);

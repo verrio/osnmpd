@@ -90,12 +90,19 @@ __attribute__((visibility("default")))
 int decode_length (buf_t * src, uint32_t * length);
 
 // encoder
+__attribute__((visibility("default")))
 int encode_TLV (buf_t * o, unsigned int mark, uint32_t tag, uint8_t flags);
+__attribute__((visibility("default")))
 int encode_BITSTRING (buf_t * o, const uint8_t * n);
+__attribute__((visibility("default")))
 int encode_INTEGER (buf_t * o, const asn1int_t * n, uint32_t tag, uint8_t flags);
+__attribute__((visibility("default")))
 int encode_UNSIGNED64 (buf_t *o, uint64_t n, uint32_t tag, uint8_t flags);
+__attribute__((visibility("default")))
 int encode_BOOLEAN (buf_t * o, const asn1bool_t * value);
+__attribute__((visibility("default")))
 int encode_OCTET_STRING (buf_t * o, const uint8_t * src, int src_len);
+__attribute__((visibility("default")))
 int encode_NULL (buf_t * o);
 
 #define TYB_FAILIF(x) do { if (x) { return -1; } } while(0)

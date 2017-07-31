@@ -334,6 +334,8 @@ int load_configuration(void)
     if (access(config_file, F_OK) == -1) {
         syslog(LOG_WARNING,
                 "configuration missing or not accessible;  using defaults");
+        set_default_engine_id();
+        set_default_trap_config();
         ret_val = -2;
         goto finish;
     }
