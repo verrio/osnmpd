@@ -744,7 +744,8 @@ static int append_trap(TrapLog *log, const SnmpScopedPDU *const scoped_pdu)
     struct timespec system_time;
     if (clock_gettime(CLOCK_REALTIME, &system_time) == -1)
         return -1;
-    uint64_t timestamp = system_time.tv_sec * 1000 + system_time.tv_nsec / 1000000;
+    uint64_t timestamp = ((uint64_t) system_time.tv_sec) * 1000 +
+            ((uint64_t) system_time.tv_nsec) / 1000000;
     out_buf.pos -= 8;
     WRITE_UINT64(out_buf.buffer, out_buf.pos, timestamp);
 

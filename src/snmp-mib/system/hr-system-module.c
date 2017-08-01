@@ -87,8 +87,8 @@ DEF_METHOD(get_scalar, SnmpErrorStatus, SingleLevelMibModule,
             struct timespec system_time;
             if (clock_gettime(CLOCK_REALTIME, &system_time) == -1) {
                 return INCONSISTENT_VALUE;
-            } else if (encode_date_time(system_time.tv_sec * 1000 +
-                system_time.tv_nsec / 1000000, binding)) {
+            } else if (encode_date_time(((uint64_t) system_time.tv_sec) * 1000 +
+                ((uint64_t) system_time.tv_nsec) / 1000000, binding)) {
                 return GENERAL_ERROR;
             }
             break;

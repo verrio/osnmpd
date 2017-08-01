@@ -176,7 +176,7 @@ static int init_state(void)
     notification_ctx.incoming_queue = -1;
     notification_ctx.outgoing_queue = -1;
 
-    if (get_trap_configuration()->user != -1) {
+    if (get_trap_configuration()->enabled && get_trap_configuration()->user != -1) {
         UserConfiguration *user_config =
                 get_user_configuration(get_trap_configuration()->user);
         if (user_config != NULL) {

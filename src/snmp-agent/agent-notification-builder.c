@@ -137,8 +137,8 @@ int build_authentication_failure_notification(const char *source, buf_t *buf)
     CHECK_TRAP_ENC_RESULT(encode_INTEGER(buf, &trap_code_1, TAG_INTEGER,
         FLAG_UNIVERSAL), "trap code");
     CHECK_TRAP_ENC_RESULT(encode_UNSIGNED64(buf,
-        (time.tv_sec * 1000) + (time.tv_nsec / 1000000), TAG_INTEGER,
-        FLAG_UNIVERSAL), "notification time stamp");
+        ((uint64_t) time.tv_sec) * 1000 + ((uint64_t) time.tv_nsec) / 1000000,
+        TAG_INTEGER, FLAG_UNIVERSAL), "notification time stamp");
     CHECK_TRAP_ENC_RESULT(encode_BITSTRING(buf, &flags), "notification flags");
     CHECK_TRAP_ENC_RESULT(encode_INTEGER(buf, &version, TAG_INTEGER, FLAG_UNIVERSAL),
             "notification version number");
