@@ -162,7 +162,7 @@ static int read_ip4_stats(void)
         }
     }
 
-    ret = !(found_ip && found_icmp && found_icmp_msg);
+    ret = !(found_ip && found_icmp);
 end:
     if (f != NULL) {
         fclose(f);
