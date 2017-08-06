@@ -164,8 +164,8 @@ if test "${enable_mib_agent}" = "yes"; then
 		fi
 	fi
 	
-	prime_csv=$(openssl dhparam -in ./dh.param -C | tr -d ' \t\n' | sed -rn 's#^.+staticunsignedchardh2048_p\[\]=\{([^\}]+)\};.+#\1#p')
-	if test `echo ${prime_csv} | wc -c` -ne 1281; then
+	prime_csv=$(openssl dhparam -in ./dh.param -C | tr -d ' \t\n' | sed -rn 's#^.+staticunsignedchardh(p_2048|2048_p)\[\]=\{([^\}]+)\};.+#\2#p')
+	if [test `echo ${prime_csv} | wc -c` -ne 1281] && [test `echo ${prime_csv} | wc -c` -ne 1280]; then
 		AC_MSG_ERROR([Failed to parse Diffie-Hellman parameters])
 	fi
 	AC_DEFINE([USM_DH_PARAM_GENERATOR], [2], [generator for Diffie-Hellman cyclic group])
