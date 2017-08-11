@@ -65,28 +65,78 @@ typedef enum {
 
 /** SNMP error status */
 typedef enum {
+
+    /* The agent reports that no errors occurred during transmission. */
     NO_ERROR = 0,
+
+    /* The agent could not place the results of the requested SNMP
+     * operation in a single SNMP message. */
     TOO_BIG = 1,
 
     /* for proxy compatibility */
+
+    /* The requested SNMP operation identified an unknown variable. */
     NO_SUCH_NAME = 2,
+
+    /* The requested SNMP operation tried to change a variable
+     * but it specified either a syntax or value error. */
     BAD_VALUE = 3,
+
+    /* The requested SNMP operation tried to change a variable
+     * that was not allowed to change, according to the community
+     * profile of the variable. */
     READ_ONLY = 4,
 
+    /* An error other than one of those listed here occurred
+     * during the requested SNMP operation. */
     GENERAL_ERROR = 5,
+
+    /* The specified SNMP variable is not accessible. */
     NO_ACCESS = 6,
+
+    /* The value specifies a type that is inconsistent
+     * with the type required for the variable. */
     WRONG_TYPE = 7,
+
+    /* The value specifies a length that is inconsistent
+     * with the length required for the variable. */
     WRONG_LENGTH = 8,
+
+    /* The value contains an ASN.1 encoding that is inconsistent
+     * with the ASN.1 tag of the field. */
     WRONG_ENCODING = 9,
+
+    /* The value cannot be assigned to the variable. */
     WRONG_VALUE = 10,
+
+    /* The variable does not exist, and the agent cannot create it. */
     NO_CREATION = 11,
+
+    /* The value is inconsistent with values of other managed objects. */
     INCONSISTENT_VALUE = 12,
+
+    /* Assigning the value to the variable requires allocation
+     * of resources that are currently unavailable. */
     RESOURCE_UNAVAILABLE = 13,
+
+    /* No validation errors occurred, but no variables were updated. */
     COMMIT_FAILED = 14,
+
+    /* No validation errors occurred. Some variables were updated
+     * because it was not possible to undo their assignment. */
     UNDO_FAILED = 15,
+
+    /* An authorization error occurred. */
     AUTHORIZATION_ERROR = 16,
+
+    /* The variable exists but the agent cannot modify it. */
     NOT_WRITABLE = 17,
+
+    /* The variable does not exist; the agent cannot create it
+     * because the named object instance is inconsistent with
+     * the values of other managed objects. */
     INCONSISTENT_NAME = 18
+
 } SnmpErrorStatus;
 
 /** USM security parameter block, included in SNMP PDU header */
