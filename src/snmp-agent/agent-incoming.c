@@ -67,6 +67,10 @@ struct in6_pktinfo {
     unsigned int ipi6_ifindex; /* send/recv interface index */
 };
 
+/* preeamble on IPv6 mapped IPv4 addresses */
+static const uint8_t ip4_preamble[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xff, 0xff };
+
 /* OID prefix for public accessible subtree */
 static SubOID public_prefix[] = { SNMP_OID_SYSTEM_MIB };
 
@@ -178,6 +182,7 @@ void handle_request(void)
 
     get_statistics()->snmp_in_pkts++;
 
+    int unicast = 0;
     if (get_agent_interfaces() != NULL) {
         int iface = -1;
         for (struct cmsghdr *cmsgptr = CMSG_FIRSTHDR(&message); cmsgptr != NULL;
@@ -185,6 +190,12 @@ void handle_request(void)
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
                 struct in6_pktinfo *pktinfo = (struct in6_pktinfo *) (CMSG_DATA(cmsgptr));
                 iface = pktinfo->ipi6_ifindex;
+                if (memcmp((uint8_t *) pktinfo->ipi6_addr.__in6_u.__u6_addr8,
+                    ip4_preamble, sizeof(ip4_preamble))) {
+                    unicast = pktinfo->ipi6_addr.__in6_u.__u6_addr8[0] != 0xff;
+                } else {
+                    unicast = (pktinfo->ipi6_addr.__in6_u.__u6_addr8[12] & 0xe0) != 0xe0;
+                }
                 break;
             }
         }
@@ -256,6 +267,11 @@ void handle_request(void)
 
     iov[0].iov_base = &output_buf.buffer[output_buf.pos];
     iov[0].iov_len = output_buf.size - output_buf.pos;
+    if (!unicast) {
+        /* force source address */
+        message.msg_controllen = 0;
+    }
+    message.msg_flags = 0;
     if (sendmsg(udp_socket_descriptor, &message, 0) == -1) {
         syslog(LOG_WARNING, "failed to dispatch response PDU : %s", strerror(errno));
         return;
