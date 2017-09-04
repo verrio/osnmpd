@@ -28,10 +28,8 @@
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <net/if.h>
 #include <ifaddrs.h>
-#include <linux/route.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -55,17 +53,17 @@
 #include "snmp-core/snmp-crypto.h"
 #include "snmp-core/utils.h"
 
+struct in6_pktinfo_t {
+    struct in6_addr ipi6_addr; /* src/dst IPv6 address */
+    unsigned int ipi6_ifindex; /* send/recv interface index */
+};
+
 /* size required for control data */
-#define CONTROL_DATASIZE (CMSG_SPACE(sizeof(struct in6_pktinfo)))
+#define CONTROL_DATASIZE (CMSG_SPACE(sizeof(struct in6_pktinfo_t)))
 
 /* multicast groups */
 #define IP4_GROUP "224.0.0.1"
 #define IP6_GROUP "ff02::1"
-
-struct in6_pktinfo {
-    struct in6_addr ipi6_addr; /* src/dst IPv6 address */
-    unsigned int ipi6_ifindex; /* send/recv interface index */
-};
 
 /* preeamble on IPv6 mapped IPv4 addresses */
 static const uint8_t ip4_preamble[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -188,13 +186,13 @@ void handle_request(void)
         for (struct cmsghdr *cmsgptr = CMSG_FIRSTHDR(&message); cmsgptr != NULL;
                 cmsgptr = CMSG_NXTHDR(&message, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
-                struct in6_pktinfo *pktinfo = (struct in6_pktinfo *) (CMSG_DATA(cmsgptr));
+                struct in6_pktinfo_t *pktinfo = (struct in6_pktinfo_t *) (CMSG_DATA(cmsgptr));
                 iface = pktinfo->ipi6_ifindex;
-                if (memcmp((uint8_t *) pktinfo->ipi6_addr.__in6_u.__u6_addr8,
+                if (memcmp((uint8_t *) pktinfo->ipi6_addr.s6_addr,
                     ip4_preamble, sizeof(ip4_preamble))) {
-                    unicast = pktinfo->ipi6_addr.__in6_u.__u6_addr8[0] != 0xff;
+                    unicast = pktinfo->ipi6_addr.s6_addr[0] != 0xff;
                 } else {
-                    unicast = (pktinfo->ipi6_addr.__in6_u.__u6_addr8[12] & 0xe0) != 0xe0;
+                    unicast = (pktinfo->ipi6_addr.s6_addr[12] & 0xe0) != 0xe0;
                 }
                 break;
             }

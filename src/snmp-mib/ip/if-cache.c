@@ -43,6 +43,7 @@
 #include <linux/if_arp.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
+#include <linux/version.h>
 
 #include "snmp-agent/agent-cache.h"
 #include "snmp-core/utils.h"
@@ -294,7 +295,11 @@ static void *fetch_if_stats(void)
                         cur->mac_stats.out_discards = stats->tx_dropped;
                         cur->mac_stats.out_ucast_pkts = stats->tx_packets;
                         cur->mac_stats.out_octets = stats->tx_bytes;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,10,0)
+                        cur->mac_stats.in_unknown_proto = 0;
+#else
                         cur->mac_stats.in_unknown_proto = stats->rx_nohandler;
+#endif
                         cur->mac_stats.in_errs = stats->rx_errors;
                         cur->mac_stats.in_discards = stats->rx_dropped;
                         cur->mac_stats.in_ucast_pkts = stats->rx_packets;

@@ -24,6 +24,8 @@
 #ifndef SRC_SNMP_CORE_UTILS_H_
 #define SRC_SNMP_CORE_UTILS_H_
 
+#include <sys/types.h>
+
 #define STRING(x)   #x
 #define HEX_LEN(x)  (3 + (x << 1))
 

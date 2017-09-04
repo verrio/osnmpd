@@ -43,6 +43,7 @@
 #include <linux/tcp.h>
 #include <linux/sctp.h>
 #include <linux/rtnetlink.h>
+#include <linux/version.h>
 #include <unistd.h>
 
 #include "snmp-core/utils.h"
@@ -268,6 +269,7 @@ static void fetch_socket_list(SocketEntry ***arr, size_t *arr_len, size_t *arr_m
             if (protocol == IPPROTO_TCP) {
                 entry->state = diag_msg->idiag_state >= LIN_TCP_MAX_STATES ? 0 :
                     tcp_state_mapping[diag_msg->idiag_state];
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0)
             } else if (protocol == IPPROTO_SCTP) {
                 /* TODO why is the association ID not included here? */
                 entry->assoc = diag_msg->idiag_inode;
@@ -329,6 +331,7 @@ static void fetch_socket_list(SocketEntry ***arr, size_t *arr_len, size_t *arr_m
                         }
                     }
                 }
+#endif
             }
         }
     }
