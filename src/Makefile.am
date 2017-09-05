@@ -25,7 +25,10 @@ snmpd_SOURCES = \
 snmpd_CFLAGS= \
         -fPIC -fvisibility=hidden
 snmpd_LDADD = \
-	-lrt -ldl -lz $(OPENSSL_LIB)
+	-lrt -lz -lcrypto
+#ifdef LINUX
+snmpd_LDADD += -ldl
+#endif
 snmpd_LDFLAGS = \
 	-fvisibility=hidden \
 	-Wl,-export-dynamic \

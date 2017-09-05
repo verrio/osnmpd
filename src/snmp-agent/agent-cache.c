@@ -29,8 +29,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <inttypes.h>
-#include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "snmp-agent/agent-cache.h"
 #include "snmp-agent/agent-config.h"
@@ -60,14 +60,8 @@ int init_cache(void)
     /* init non-persistent values */
     memset(&agent_statistics, 0, sizeof(SnmpAgentStatistics));
     memset(&mib_cache, 0, sizeof(SnmpMibModuleCache));
-    struct sysinfo s_info;
-    if (sysinfo(&s_info)) {
-        syslog(LOG_ERR, "failed to determine uptime.");
-        start_time = 0;
-        ret = -1;
-    } else {
-        start_time = s_info.uptime;
-    }
+    start_time = 0;
+    start_time = get_uptime();
 
     /* init persistent values */
     char *cache_dir = get_cache_dir();
@@ -173,12 +167,12 @@ uint64_t get_start_time(void)
 
 uint32_t get_uptime(void)
 {
-    struct sysinfo s_info;
-    if (sysinfo(&s_info)) {
-        syslog(LOG_WARNING, "failed to determine system uptime.");
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        syslog(LOG_ERR, "failed to determine system uptime.");
         return -1;
     } else {
-        return (uint32_t) (s_info.uptime - start_time);
+        return (uint32_t) (ts.tv_sec - start_time);
     }
 }
 
@@ -201,18 +195,13 @@ SnmpAgentStatistics *get_statistics(void)
 void *get_mib_cache(void *(*fetch_cache)(void), void (*free_cache)(void *),
         uint32_t max_age)
 {
-    struct sysinfo s_info;
-    if (sysinfo(&s_info)) {
-        return NULL;
-    }
-
     if (mib_cache.update_val != fetch_cache ||
-        (uint32_t) s_info.uptime - mib_cache.last_update > max_age) {
+        get_uptime() - mib_cache.last_update > max_age) {
         if (mib_cache.free_val != NULL && mib_cache.val != NULL) {
             mib_cache.free_val(mib_cache.val);
         }
 
-        mib_cache.last_update = (uint32_t) s_info.uptime;
+        mib_cache.last_update = get_uptime();
         mib_cache.update_val = fetch_cache;
         mib_cache.free_val = free_cache;
         mib_cache.val = fetch_cache();

@@ -34,7 +34,6 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <fcntl.h>
-#include <stropts.h>
 #include <poll.h>
 #include <fcntl.h>
 #include <time.h>

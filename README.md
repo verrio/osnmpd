@@ -133,7 +133,7 @@ This module allows for delegating requests for a MIB subtree to an external proc
 
 #### Using SNMP in this day and age!?  What kind of man are you?
 
-I admit, SNMP has it quirky sides.  In particular, the lack of table joins and other query operations is sometimes frustrating.  Still, being a non-proprietary standard makes up for that.  Just about any device on my network, doesn't matter how crappy the firmware, has some basic SNMP support.  Traps aren't as fancy as pub-sub based protocols, but for basic network monitoring they still seem to do the job.  The high-end networking equipment seems to move on to more capable proprietary standards, but I'd wager for the low-end SNMP will stick around for some time to come.
+I admit, SNMP has its quirky sides.  In particular, the lack of table joins and other query operations is sometimes frustrating.  Still, being a non-proprietary standard makes up for that.  Just about any device on my network, doesn't matter how crappy the firmware, has some basic SNMP support.  Traps aren't as fancy as pub-sub based protocols, but for basic network monitoring they still seem to do the job.  The high-end networking equipment seems to move on to more capable proprietary standards, but I'd wager for the low-end SNMP will stick around for some time to come.
 
 #### How safe is USM really?
 

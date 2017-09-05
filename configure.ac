@@ -43,7 +43,7 @@ AC_DEFINE_UNQUOTED([GIT_DATE], ["$GIT_DATE"], [git commit date])
 
 m4_pattern_allow([AM_PROG_AR])
 if test -z "$CFLAGS"; then
-	CFLAGS="-g -Os -Wall -Wunreachable-code -Wpointer-arith -Werror"
+	CFLAGS="-std=gnu11 -g -Os -Wall -Wunreachable-code -Wpointer-arith -Werror"
 fi
 AM_PROG_AR
 AC_PROG_CC
@@ -56,24 +56,18 @@ AC_LIB_PREFIX
 LT_INIT
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects no-dependencies])
 
-AC_MSG_CHECKING([whether to build for Microsoft Windows target])
-AC_COMPILE_IFELSE(
-	[AC_LANG_PROGRAM(
-		[[#include <windows.h>]],
-		[[#ifndef WIN32
-		  # error WIN32 undefined
-		  #endif
-		]])],
-	[
-		AC_MSG_RESULT([yes])
-		windows=true
-		openssl_lib=eay32
-	],
-	[
-		AC_MSG_RESULT([no])
-		openssl_lib=crypto
-	]
-)
+AC_MSG_CHECKING([whether to build for Linux target])
+host_linux=no
+case "${host_os}" in
+    linux*)
+        host_linux=yes
+        ;;
+    *)
+        AC_MSG_WARN(["OS $host_os is not supported"])
+        ;;
+esac
+AM_CONDITIONAL([LINUX], [test "${host_linux}" = "yes"])
+
 AC_SUBST(OPENSSL_LIB, [-l${openssl_lib}])
 AC_CHECK_LIB([config],[config_read_file],[],[AC_MSG_ERROR([libconfig library not found])],[])
 AC_CHECK_LIB([z],[inflate],[],[AC_MSG_ERROR([zlib library not found])],[])

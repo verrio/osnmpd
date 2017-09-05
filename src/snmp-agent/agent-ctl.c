@@ -21,7 +21,6 @@
  * SOFTWARE.
  */
 
-#include <sys/sysinfo.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -503,19 +502,10 @@ static int handle_request_uptime(uint8_t dry_run, buf_t *arguments,
 
     if (arguments->pos != arguments->size) {
         result = RES_ARGUMENTS_INVALID;
-    } else {
-        struct sysinfo s_info;
-        int error = sysinfo(&s_info);
-        if (error != 0) {
-            char *err = strerror(errno);
-            CHECK_ENC_RESULT(encode_OCTET_STRING(response_buffer, (uint8_t *) err,
-                    strlen(err)), "error string", return -1);
-            result = RES_OS_FAULT;
-        } else if (!dry_run) {
-            asn1int_t uptime = get_uptime() * ((int64_t) 1000);
-            CHECK_ENC_RESULT(encode_INTEGER(response_buffer, &uptime,
-                    TAG_INTEGER, FLAG_UNIVERSAL), "uptime", return -1);
-        }
+    } else if (!dry_run) {
+        asn1int_t uptime = get_uptime() * ((int64_t) 1000);
+        CHECK_ENC_RESULT(encode_INTEGER(response_buffer, &uptime,
+                TAG_INTEGER, FLAG_UNIVERSAL), "uptime", return -1);
     }
 
     CHECK_ENC_RESULT(encode_TLV(response_buffer, response_buffer->size,

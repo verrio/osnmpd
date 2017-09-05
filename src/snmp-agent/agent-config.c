@@ -37,6 +37,9 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <ifaddrs.h>
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif /* __linux__ */
 
 #include "config.h"
 #include "snmp-agent/agent-config.h"
@@ -265,13 +268,19 @@ static void set_default_engine_id(void)
 
     for (struct ifaddrs *if_addr_ptr = if_addr; if_addr_ptr;
             if_addr_ptr = if_addr_ptr->ifa_next) {
+#ifdef __linux__
         struct ifreq ifr;
         strcpy(ifr.ifr_name, if_addr_ptr->ifa_name);
-        if (ioctl(sock, SIOCGIFHWADDR, &ifr) != 0) {
+        if (ioctl(sock, SIOCGIFHWADDR, &ifr) != 0)
             continue;
-        }
-
         memcpy(&engine_id[5], ifr.ifr_hwaddr.sa_data, 6);
+#else
+        struct sockaddr_dl *sock_addr =
+            (struct sockaddr_dl *) (if_addr_ptr->ifa_addr);
+        uint8_t *hwaddr = (uint8_t *) LLADDR(sock_addr);
+        memcpy(&engine_id[5], hwaddr, 6);
+#endif /* __linux__ */
+
         uint8_t zero_cmp[] = {0,0,0,0,0,0};
         if (memcmp(&engine_id[5], zero_cmp, 6)) {
             mac_found = 1;
@@ -285,7 +294,7 @@ err:
     if (!mac_found) {
         syslog(LOG_WARNING, "no valid MAC found");
     }
-#endif
+#endif /* SERIAL_NUMBER_SUPPORT */
 }
 
 static void set_default_trap_config(void)
