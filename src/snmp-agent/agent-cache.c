@@ -54,7 +54,6 @@ SnmpMibModuleCache mib_cache;
 
 int init_cache(void)
 {
-    int ret = 0;
     char *file_name = NULL;
 
     /* init non-persistent values */
@@ -107,11 +106,12 @@ int init_cache(void)
         syslog(LOG_WARNING, "boot counter permission issue : %s", strerror(errno));
     }
 
-    return ret;
-err:
-    if (file_name) {
+    if (file_name)
         free(file_name);
-    }
+    return 0;
+err:
+    if (file_name)
+        free(file_name);
     boot_count = 0;
     return -1;
 }

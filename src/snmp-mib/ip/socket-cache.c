@@ -180,27 +180,21 @@ err:
 static SocketEntry *create_socket_entry(SocketEntry ***arr,
         size_t *arr_len, size_t *arr_max)
 {
+    if (*arr_len >= *arr_max) {
+        int new_len = (*arr_max) << 1;
+        SocketEntry **tmp = realloc(*arr, new_len * sizeof(SocketEntry *));
+        if (tmp == NULL)
+            return NULL;
+
+        *arr = tmp;
+        *arr_max = new_len;
+    }
+
     SocketEntry *entry = malloc(sizeof(SocketEntry));
     if (entry == NULL)
         return NULL;
-
     memset(entry, 0, sizeof(SocketEntry));
-    if (*arr_len >= *arr_max) {
-        int new_len = (*arr_max) << 1;
-        SocketEntry **tmp = malloc(new_len * sizeof(SocketEntry *));
-        if (tmp == NULL) {
-            free(entry);
-            return NULL;
-        }
-
-        memcpy(*arr, tmp, sizeof(SocketEntry *) * (*arr_max));
-        *arr_max = new_len;
-        free(*arr);
-        *arr = tmp;
-    } else {
-        (*arr)[(*arr_len)++] = entry;
-    }
-
+    (*arr)[(*arr_len)++] = entry;
     return entry;
 }
 
