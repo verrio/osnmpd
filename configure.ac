@@ -58,15 +58,20 @@ AM_INIT_AUTOMAKE([-Wall foreign subdir-objects no-dependencies])
 
 AC_MSG_CHECKING([whether to build for Linux target])
 host_linux=no
+host_qnx=no
 case "${host_os}" in
     linux*)
         host_linux=yes
+        ;;
+    qnx*)
+        host_qnx=yes
         ;;
     *)
         AC_MSG_WARN(["OS $host_os is not supported"])
         ;;
 esac
 AM_CONDITIONAL([LINUX], [test "${host_linux}" = "yes"])
+AM_CONDITIONAL([QNX], [test "${host_qnx}" = "yes"])
 
 AC_SUBST(OPENSSL_LIB, [-l${openssl_lib}])
 AC_CHECK_LIB([config],[config_read_file],[],[AC_MSG_ERROR([libconfig library not found])],[])
@@ -126,10 +131,14 @@ AC_MSG_RESULT(${ENTERPRISE_MIB})
 AC_DEFINE_UNQUOTED(ENTERPRISE_MIB, [`echo ${ENTERPRISE_MIB} | tr '.' ','`], [enterprise MIB subtree])
 
 AC_MSG_CHECKING([whether the agent MIB is to be compiled in])
+if test "${host_linux}" = "yes"; then
 AC_ARG_WITH(mib-agent,
 	[  --with-mib-agent        Include agent MIB module],
 	enable_mib_agent=$withval,
 	enable_mib_agent="yes")
+else
+enable_mib_agent="no"
+fi
 AC_MSG_RESULT(${enable_mib_agent})
 AM_CONDITIONAL([ENABLE_MIB_AGENT], [test "${enable_mib_agent}" = "yes"])
 
@@ -157,34 +166,50 @@ if test "${enable_mib_agent}" = "yes"; then
 fi
 
 AC_MSG_CHECKING([whether the system MIB is to be compiled in])
+if test "${host_linux}" = "yes"; then
 AC_ARG_WITH(mib-system,
 	[  --with-mib-system       Include system MIB module],
 	enable_mib_system=$withval,
 	enable_mib_system="yes")
+else
+enable_mib_system="no"
+fi
 AC_MSG_RESULT(${enable_mib_system})
 AM_CONDITIONAL([ENABLE_MIB_SYSTEM], [test "${enable_mib_system}" = "yes"])
 
 AC_MSG_CHECKING([whether the power MIB is to be compiled in])
+if test "${host_linux}" = "yes"; then
 AC_ARG_WITH(mib-power,
 	[  --with-mib-power        Include power MIB module],
 	enable_mib_power=$withval,
 	enable_mib_power="yes")
+else
+enable_mib_power="no"
+fi
 AC_MSG_RESULT(${enable_mib_power})
 AM_CONDITIONAL([ENABLE_MIB_POWER], [test "${enable_mib_power}" = "yes"])
 
 AC_MSG_CHECKING([whether the IP MIB is to be compiled in])
+if test "${host_linux}" = "yes"; then
 AC_ARG_WITH(mib-ip,
 	[  --with-mib-ip           Include IP MIB module],
 	enable_mib_ip=$withval,
 	enable_mib_ip="yes")
+else
+enable_mib_ip="no"
+fi
 AC_MSG_RESULT(${enable_mib_ip})
 AM_CONDITIONAL([ENABLE_MIB_IP], [test "${enable_mib_ip}" = "yes"])
 
 AC_MSG_CHECKING([whether the sensors MIB is to be compiled in])
+if test "${host_linux}" = "yes"; then
 AC_ARG_WITH(mib-sensors,
 	[  --with-mib-sensors      Include sensors MIB module],
 	enable_mib_sensors=$withval,
 	enable_mib_sensors="yes")
+else
+enable_mib_sensors="no"
+fi
 AC_MSG_RESULT(${enable_mib_sensors})
 AM_CONDITIONAL([ENABLE_MIB_SENSORS], [test "${enable_mib_sensors}" = "yes"])
 
