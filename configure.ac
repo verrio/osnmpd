@@ -93,16 +93,6 @@ if test "${enable_smartcard}" = "yes"; then
 	AC_DEFINE([WITH_SMARTCARD_SUPPORT], [], [enable smartcard engine support])
 fi
 
-AC_MSG_CHECKING([whether to use legacy crypto primitives (AES-128/SHA-1) for USM])
-AC_ARG_ENABLE(legacy-crypto,
-	[  --enable-legacy-crypto  Use AES-128/SHA-1 instead of AES-256/SHA-256 for USM security],
-	[enable_legacy_crypto=$enableval],
-	[enable_legacy_crypto="no"])
-AC_MSG_RESULT($enable_legacy_crypto)
-if test "${enable_legacy_crypto}" = "yes"; then
-	AC_DEFINE([USE_LEGACY_CRYPTO], [], [use legacy AES-128 and HMAC-SHA-1 instead of AES-256 and HMAC-SHA-256])
-fi
-
 AC_MSG_CHECKING(which admin user to be used)
 AC_ARG_WITH(admin-user-name,
 	[AS_HELP_STRING([--with-admin-user-name],[Alternative administrator user name])],
@@ -281,7 +271,6 @@ cat << EOF
   max PDU size .................... : ${MAX_PDU_SIZE}
   smartcard support ............... : ${enable_smartcard}
   serial number support ........... : ${enable_serial_number}
-  use legacy crypto ............... : ${enable_legacy_crypto}
   
   include SNMP agent module ....... : ${enable_mib_agent}
   include system module ........... : ${enable_mib_system}
