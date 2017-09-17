@@ -33,6 +33,7 @@
 #include "snmp-mib/ip/tcp-module.h"
 #include "snmp-mib/ip/udp-module.h"
 #include "snmp-mib/ip/sctp-module.h"
+#include "snmp-mib/ip/dns-resolver-module.h"
 
 __attribute__((constructor))
 static void load_plugin(void)
@@ -59,4 +60,5 @@ static void load_plugin(void)
     add_module(init_iface_module, "iface");
     add_module(init_ifacex_module, "ifaceX");
     add_module(init_inverted_iface_module, "inverted stack");
+    add_module(init_dns_resolver_module, "dns resolve");
 }

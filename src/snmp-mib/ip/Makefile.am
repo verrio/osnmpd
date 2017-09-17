@@ -15,7 +15,8 @@ libsnmp_mib_ip_la_SOURCES = \
 	ip-traffic-stats.h ip-traffic-stats.c \
 	if-module.h if-module.c ifx-module.h ifx-module.c \
 	if-inverted-module.h if-inverted-module.c \
-	if-cache.h if-cache.c socket-cache.h socket-cache.c
+	if-cache.h if-cache.c socket-cache.h socket-cache.c \
+	dns-resolver-module.h dns-resolver-module.c
 libsnmp_mib_ip_la_CFLAGS= \
 	-fPIC -fvisibility=hidden
 libsnmp_mib_ip_la_LDFLAGS = \

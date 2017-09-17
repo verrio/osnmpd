@@ -15,7 +15,7 @@ agent:
     enabled = true;
     confirmed = false;
     user = "READ_ONLY";
-    destination = "10.0.0.1";
+    destination = "::1";
     port = 162;
     retries = 3;
     timeout = 10;
