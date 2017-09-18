@@ -490,10 +490,10 @@ int load_configuration(void)
         if (trap_configuration.user == -1) {
             syslog(LOG_ERR, "no user for profile %s", str);
             ret_val = -1;
-            trap_configuration.user = READ_ONLY;
+            trap_configuration.user = get_user_from_string("READ_ONLY");
         }
     } else {
-        trap_configuration.user = READ_ONLY;
+        trap_configuration.user = get_user_from_string("READ_ONLY");
     }
 
     /* fetch user configuration */
