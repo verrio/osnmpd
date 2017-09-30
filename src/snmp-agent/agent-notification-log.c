@@ -318,6 +318,8 @@ uint32_t get_num_log_discarded(void)
 
 static int trap_log_open(TrapLog *log)
 {
+    if (get_cache_dir() == NULL)
+        return 0;
     char *log_file = strconcat(get_cache_dir(), LOG_FILE);
     if (log_file == NULL)
         return -1;

@@ -427,17 +427,21 @@ int load_configuration(void)
     /* fetch cache dir */
     if (config_lookup_string(&agent_cfg,
         KEY_AGENT KEY_SEPARATOR KEY_CACHE_DIR, &str) == CONFIG_TRUE) {
-        struct stat cache_stat;
-        cache_dir = malloc(strlen(str) + 2);
-        if (cache_dir != NULL) {
-            strcpy(cache_dir, str);
-            cache_dir[strlen(str)] = '/';
-            cache_dir[strlen(str) + 1] = '\0';
-        }
-        if (cache_dir == NULL || stat(str, &cache_stat) != 0
-            || !S_ISDIR(cache_stat.st_mode)) {
-            ret_val = -1;
-            syslog(LOG_ERR, "failed to access cache directory");
+        if (strcmp(str, "")) {
+            struct stat cache_stat;
+            cache_dir = malloc(strlen(str) + 2);
+            if (cache_dir != NULL) {
+                strcpy(cache_dir, str);
+                cache_dir[strlen(str)] = '/';
+                cache_dir[strlen(str) + 1] = '\0';
+            }
+            if (cache_dir == NULL || stat(str, &cache_stat) != 0
+                || !S_ISDIR(cache_stat.st_mode)) {
+                ret_val = -1;
+                syslog(LOG_ERR, "failed to access cache directory");
+            }
+        } else {
+            cache_dir = NULL;
         }
     } else {
         syslog(LOG_DEBUG, "using default cache directory %s.", cache_dir);

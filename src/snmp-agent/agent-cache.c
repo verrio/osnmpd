@@ -65,8 +65,9 @@ int init_cache(void)
     /* init persistent values */
     char *cache_dir = get_cache_dir();
     if (cache_dir == NULL) {
-        syslog(LOG_CRIT, "missing cache directory");
-        goto err;
+        syslog(LOG_WARNING, "no caching directory specified;  boot counter unavailable");
+        boot_count = 0;
+        return 0;
     }
 
     if ((file_name = strconcat(cache_dir, boot_file)) == NULL) {
@@ -137,7 +138,7 @@ int reset_boot_count(void)
 
     char *cache_dir = get_cache_dir();
     if (cache_dir == NULL) {
-        syslog(LOG_CRIT, "missing cache directory");
+        syslog(LOG_WARNING, "missing cache directory;  boot count unavailable");
         return -1;
     }
     char *file_name = strconcat(cache_dir, boot_file);
